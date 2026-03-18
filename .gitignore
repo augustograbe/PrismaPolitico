@@ -1,0 +1,19 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.env
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+db.sqlite3
+
+# Node / React (client folder)
+node_modules/
+dist/
+build/
+.DS_Store
+*.log
