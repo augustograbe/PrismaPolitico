@@ -55,3 +55,8 @@ Para baixar os dados reais dos deputados e votações da Câmara dos Deputados d
    ```bash
    python manage.py gerar_grafo_similaridade
    ```
+   
+3. **Gerar as Análises**:
+   ```bash
+   python manage.py gerar_analises --legislatura 57
+   ```

@@ -88,6 +88,19 @@ class Command(BaseCommand):
         deputados_dados = self.get_api_data("https://dadosabertos.camara.leg.br/api/v2/deputados", {'idLegislatura': leg})
         for d in tqdm(deputados_dados, desc="Salvando Deputados"):
             partido = Partido.objects.filter(sigla=d['siglaPartido']).first()
+            
+            # Buscar dados completos do deputado
+            detalhes_url = f"https://dadosabertos.camara.leg.br/api/v2/deputados/{d['id']}"
+            try:
+                res = requests.get(detalhes_url, timeout=10)
+                res.raise_for_status()
+                detalhes = res.json().get('dados', {})
+                ultimo_status = detalhes.get('ultimoStatus', {})
+            except Exception as e:
+                self.stderr.write(f"\nErro ao buscar detalhes do deputado {d['id']}: {e}")
+                detalhes = {}
+                ultimo_status = {}
+            
             Deputado.objects.update_or_create(
                 id=d['id'],
                 defaults={
@@ -98,7 +111,17 @@ class Command(BaseCommand):
                     'sigla_uf': d['siglaUf'],
                     'id_legislatura': d['idLegislatura'],
                     'url_foto': d['urlFoto'],
-                    'email': d['email']
+                    'email': d['email'],
+                    'cpf': detalhes.get('cpf'),
+                    'data_nascimento': detalhes.get('dataNascimento'),
+                    'data_falecimento': detalhes.get('dataFalecimento'),
+                    'escolaridade': detalhes.get('escolaridade'),
+                    'municipio_nascimento': detalhes.get('municipioNascimento'),
+                    'nome_civil': detalhes.get('nomeCivil'),
+                    'sexo': detalhes.get('sexo'),
+                    'uf_nascimento': detalhes.get('ufNascimento'),
+                    'condicao_eleitoral': ultimo_status.get('condicaoEleitoral'),
+                    'situacao': ultimo_status.get('situacao'),
                 }
             )
 

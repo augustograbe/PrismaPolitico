@@ -19,6 +19,18 @@ class Deputado(models.Model):
     id_legislatura = models.IntegerField(null=True, blank=True)
     url_foto = models.URLField(null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
+    
+    # Novos campos detalhados
+    cpf = models.CharField(max_length=14, null=True, blank=True)
+    data_nascimento = models.DateField(null=True, blank=True)
+    data_falecimento = models.DateField(null=True, blank=True)
+    escolaridade = models.CharField(max_length=100, null=True, blank=True)
+    municipio_nascimento = models.CharField(max_length=100, null=True, blank=True)
+    nome_civil = models.CharField(max_length=200, null=True, blank=True)
+    sexo = models.CharField(max_length=1, null=True, blank=True)
+    uf_nascimento = models.CharField(max_length=2, null=True, blank=True)
+    condicao_eleitoral = models.CharField(max_length=100, null=True, blank=True)
+    situacao = models.CharField(max_length=50, null=True, blank=True)
 
     class Meta:
         ordering = ['nome']
