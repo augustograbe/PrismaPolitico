@@ -133,9 +133,8 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
             // Visibilidade baseada nos filtros
             let hidden = false;
 
-            // Filtro: apenas em exercício. Se a API real não tiver, consideramos true.
-            const isEmExercicio = dep.em_exercicio !== undefined ? dep.em_exercicio : true;
-            if (onlyActive && !isEmExercicio) {
+            // Filtro: apenas em exercício (baseado no campo situacao da tabela deputados_deputado)
+            if (onlyActive && dep.situacao && dep.situacao !== 'Exercício') {
                 hidden = true;
             }
 
