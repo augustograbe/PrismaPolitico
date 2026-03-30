@@ -35,7 +35,7 @@ function getNodeColor(deputy, separateBy) {
  * - selectedNode: id do nó selecionado (string | null)
  * - onNodeClick: callback quando um nó é clicado
  */
-export default function GraphContainer({ filters, selectedNode, onNodeClick }) {
+export default function GraphContainer({ filters, selectedNode, onNodeClick, onDeputiesLoaded }) {
     const graph = useMemo(() => new Graph(), []);
     const sigmaRef = useRef(null);
     const [dataLoaded, setDataLoaded] = useState(false);
@@ -104,6 +104,7 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick }) {
                 }
                 
                 setDataLoaded(true);
+                if (onDeputiesLoaded) onDeputiesLoaded(deputados);
 
             } catch (error) {
                 console.error("Erro ao carregar dados do grafo:", error);
@@ -112,7 +113,7 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick }) {
         
         loadData();
         return () => { isMounted = false; };
-    }, [graph]);
+    }, [graph, onDeputiesLoaded]);
 
     // Aplicar filtros quando mudam
     const applyFilters = useCallback(() => {

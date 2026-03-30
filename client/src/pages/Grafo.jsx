@@ -12,6 +12,7 @@ import { COLORS } from '../constants/theme';
  */
 export default function Grafo() {
     const [selectedDeputy, setSelectedDeputy] = useState(null);
+    const [deputyList, setDeputyList] = useState([]);
     const [filters, setFilters] = useState({
         separateBy: 'partido',
         onlyActive: true,
@@ -42,6 +43,21 @@ export default function Grafo() {
         setSelectedDeputy(null);
     }, []);
 
+    const handleDeputiesLoaded = useCallback((deputies) => {
+        setDeputyList(deputies);
+    }, []);
+
+    // Quando um deputado é selecionado pela pesquisa no TopBar,
+    // simula o mesmo comportamento de clicar no vértice dele
+    const handleSearchSelectDeputy = useCallback((dep) => {
+        const nodeId = String(dep.id);
+        // Usar os mesmos dados que o grafo usa ao clicar num nó
+        setSelectedDeputy({
+            ...dep,
+            nodeId,
+        });
+    }, []);
+
     return (
         <div style={pageStyle}>
             {/* Grafo no fundo - ocupa toda a tela */}
@@ -49,10 +65,14 @@ export default function Grafo() {
                 filters={filters}
                 selectedNode={selectedDeputy ? String(selectedDeputy.nodeId || selectedDeputy.id) : null}
                 onNodeClick={handleNodeClick}
+                onDeputiesLoaded={handleDeputiesLoaded}
             />
 
             {/* Barra superior */}
-            <TopBar />
+            <TopBar
+                deputyList={deputyList}
+                onSelectDeputy={handleSearchSelectDeputy}
+            />
 
             {/* Painel de filtros - canto superior direito */}
             <FiltersPanel onApply={handleApplyFilters} />

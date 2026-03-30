@@ -1,29 +1,120 @@
-import { COLORS, SPACING, FONTS } from '../constants/theme';
+import { useState, useRef, useEffect } from 'react';
+import { COLORS, SPACING, FONTS, SHADOWS } from '../constants/theme';
 
 /**
- * SearchBar - Barra de pesquisa
+ * SearchBar - Barra de pesquisa com autocomplete de deputados
  * Props:
  * - placeholder: texto placeholder
  * - value: valor controlado
  * - onChange: callback de mudança
  * - style: estilos adicionais
+ * - suggestions: array de { id, nome, sigla_partido, sigla_uf } para autocomplete
+ * - onSelectSuggestion: callback quando uma sugestão é selecionada (recebe o objeto do deputado)
  */
 export default function SearchBar({
     placeholder = 'Pesquisar...',
     value,
     onChange,
     style = {},
+    suggestions = [],
+    onSelectSuggestion,
 }) {
+    const [query, setQuery] = useState(value || '');
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const containerRef = useRef(null);
+    const inputRef = useRef(null);
+
+    // Sincronizar com value externo
+    useEffect(() => {
+        if (value !== undefined) {
+            setQuery(value);
+        }
+    }, [value]);
+
+    // Filtrar sugestões baseado na query (mínimo 3 caracteres)
+    const filteredSuggestions = query.length >= 3
+        ? suggestions
+            .filter((dep) => {
+                const nome = (dep.nome || dep.label || '').toLowerCase();
+                const searchTerms = query.toLowerCase().trim().split(/\s+/);
+                return searchTerms.every((term) => nome.includes(term));
+            })
+            .slice(0, 5)
+        : [];
+
+    const hasQuery = query.length >= 3;
+    const showResults = showDropdown && hasQuery;
+
+    // Fechar dropdown ao clicar fora
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setShowDropdown(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Reset highlighted index quando sugestões mudam
+    useEffect(() => {
+        setHighlightedIndex(0);
+    }, [filteredSuggestions.length, query]);
+
+    const handleInputChange = (e) => {
+        const val = e.target.value;
+        setQuery(val);
+        setShowDropdown(true);
+        if (onChange) onChange(e);
+    };
+
+    const handleSelect = (dep) => {
+        setQuery('');
+        setShowDropdown(false);
+        if (onSelectSuggestion) onSelectSuggestion(dep);
+        inputRef.current?.blur();
+    };
+
+    const handleKeyDown = (e) => {
+        if (!showResults) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex((prev) =>
+                Math.min(prev + 1, filteredSuggestions.length - 1)
+            );
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (filteredSuggestions.length > 0) {
+                handleSelect(filteredSuggestions[highlightedIndex]);
+            }
+        } else if (e.key === 'Escape') {
+            setShowDropdown(false);
+        }
+    };
+
     const containerStyle = {
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        ...style,
+    };
+
+    const inputContainerStyle = {
         display: 'flex',
         alignItems: 'center',
         backgroundColor: COLORS.white,
-        border: `1px solid ${COLORS.borderLight}`,
-        borderRadius: SPACING.radiusMd,
+        border: `1px solid ${showResults ? COLORS.orange : COLORS.borderLight}`,
+        borderRadius: showResults ? `${SPACING.radiusMd} ${SPACING.radiusMd} 0 0` : SPACING.radiusMd,
         padding: `${SPACING.sm} ${SPACING.md}`,
         gap: SPACING.sm,
         width: '100%',
-        ...style,
+        transition: 'border-color 0.2s ease',
     };
 
     const inputStyle = {
@@ -36,26 +127,152 @@ export default function SearchBar({
         backgroundColor: 'transparent',
     };
 
+    const dropdownStyle = {
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        backgroundColor: COLORS.white,
+        border: `1px solid ${COLORS.orange}`,
+        borderTop: 'none',
+        borderRadius: `0 0 ${SPACING.radiusMd} ${SPACING.radiusMd}`,
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+        zIndex: 200,
+        overflow: 'hidden',
+    };
+
+    const suggestionStyle = (isHighlighted) => ({
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: `${SPACING.sm} ${SPACING.md}`,
+        cursor: 'pointer',
+        backgroundColor: isHighlighted ? 'rgba(232, 133, 12, 0.08)' : 'transparent',
+        transition: 'background-color 0.12s ease',
+        borderBottom: `1px solid ${COLORS.borderLight}`,
+    });
+
+    const nameStyle = {
+        fontSize: FONTS.sizeMd,
+        fontFamily: FONTS.family,
+        fontWeight: FONTS.weightMedium,
+        color: COLORS.textDark,
+    };
+
+    const badgeContainerStyle = {
+        display: 'flex',
+        gap: SPACING.xs,
+        alignItems: 'center',
+    };
+
+    const badgeStyle = {
+        fontSize: FONTS.sizeXs,
+        fontFamily: FONTS.family,
+        fontWeight: FONTS.weightSemibold,
+        padding: `2px ${SPACING.xs}`,
+        borderRadius: SPACING.radiusSm,
+        backgroundColor: 'rgba(232, 133, 12, 0.12)',
+        color: COLORS.orange,
+    };
+
+    const noResultStyle = {
+        padding: `${SPACING.md} ${SPACING.md}`,
+        fontSize: FONTS.sizeMd,
+        fontFamily: FONTS.family,
+        color: COLORS.textLight,
+        textAlign: 'center',
+    };
+
+    // Função para destacar o texto que deu match
+    const highlightMatch = (text, searchQuery) => {
+        if (!searchQuery || searchQuery.length < 3) return text;
+        const terms = searchQuery.toLowerCase().trim().split(/\s+/);
+        let result = text;
+        // Simples: retorna o texto com destaque
+        const regex = new RegExp(`(${terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+        const parts = result.split(regex);
+        
+        return parts.map((part, i) => {
+            const isMatch = terms.some(t => part.toLowerCase() === t.toLowerCase());
+            if (isMatch) {
+                return (
+                    <span key={i} style={{ color: COLORS.orange, fontWeight: FONTS.weightSemibold }}>
+                        {part}
+                    </span>
+                );
+            }
+            return part;
+        });
+    };
+
     return (
-        <div style={containerStyle}>
-            <input
-                type="text"
-                placeholder={placeholder}
-                value={value}
-                onChange={onChange}
-                style={inputStyle}
-            />
-            <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke={COLORS.textLight}
-                strokeWidth="2"
-            >
-                <circle cx="7" cy="7" r="5" />
-                <path d="M11 11L15 15" />
-            </svg>
+        <div ref={containerRef} style={containerStyle}>
+            <div style={inputContainerStyle}>
+                <input
+                    ref={inputRef}
+                    type="text"
+                    placeholder={placeholder}
+                    value={query}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => setShowDropdown(true)}
+                    style={inputStyle}
+                />
+                <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke={showResults ? COLORS.orange : COLORS.textLight}
+                    strokeWidth="2"
+                    style={{ transition: 'stroke 0.2s ease' }}
+                >
+                    <circle cx="7" cy="7" r="5" />
+                    <path d="M11 11L15 15" />
+                </svg>
+            </div>
+
+            {showResults && (
+                <div style={dropdownStyle}>
+                    {filteredSuggestions.length > 0 ? (
+                        filteredSuggestions.map((dep, index) => (
+                            <div
+                                key={dep.id || dep.nodeId || index}
+                                style={suggestionStyle(index === highlightedIndex)}
+                                onMouseEnter={() => setHighlightedIndex(index)}
+                                onMouseDown={(e) => {
+                                    e.preventDefault(); // Previne blur do input
+                                    handleSelect(dep);
+                                }}
+                            >
+                                <span style={nameStyle}>
+                                    {highlightMatch(dep.nome || dep.label || '', query)}
+                                </span>
+                                <div style={badgeContainerStyle}>
+                                    {(dep.sigla_partido || dep.partido) && (
+                                        <span style={badgeStyle}>
+                                            {dep.sigla_partido || dep.partido}
+                                        </span>
+                                    )}
+                                    {(dep.sigla_uf || dep.estado) && (
+                                        <span style={{
+                                            ...badgeStyle,
+                                            backgroundColor: 'rgba(85, 85, 85, 0.08)',
+                                            color: COLORS.textMedium,
+                                        }}>
+                                            {dep.sigla_uf || dep.estado}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div style={noResultStyle}>
+                            Nenhum deputado encontrado
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

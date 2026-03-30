@@ -5,8 +5,12 @@ import logo from '../../assets/logo.png';
 /**
  * TopBar - Barra superior da aplicação
  * Logo + Título + Barra de pesquisa + Botões de menu (Grafos, Lista, Sobre)
+ *
+ * Props:
+ * - deputyList: array de deputados para autocomplete na SearchBar
+ * - onSelectDeputy: callback quando um deputado é selecionado na pesquisa
  */
-export default function TopBar() {
+export default function TopBar({ deputyList = [], onSelectDeputy }) {
     const barStyle = {
         position: 'fixed',
         top: SPACING.frameGap,
@@ -116,7 +120,11 @@ export default function TopBar() {
 
             {/* Center: Search bar */}
             <div style={centerStyle}>
-                <SearchBar placeholder="Pesquisar deputado" />
+                <SearchBar
+                    placeholder="Pesquisar deputado"
+                    suggestions={deputyList}
+                    onSelectSuggestion={onSelectDeputy}
+                />
             </div>
 
             {/* Right: Menu buttons */}
