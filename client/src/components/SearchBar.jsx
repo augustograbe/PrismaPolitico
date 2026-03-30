@@ -2,6 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../constants/theme';
 
 /**
+ * Remove acentos e diacríticos de uma string
+ */
+const removeAccents = (str) => {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
+/**
  * SearchBar - Barra de pesquisa com autocomplete de deputados
  * Props:
  * - placeholder: texto placeholder
@@ -22,6 +29,8 @@ export default function SearchBar({
     const [query, setQuery] = useState(value || '');
     const [showDropdown, setShowDropdown] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const [isHovered, setIsHovered] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
     const containerRef = useRef(null);
     const inputRef = useRef(null);
 
@@ -32,18 +41,19 @@ export default function SearchBar({
         }
     }, [value]);
 
-    // Filtrar sugestões baseado na query (mínimo 3 caracteres)
-    const filteredSuggestions = query.length >= 3
+    // Filtrar sugestões baseado na query (mínimo 1 caractere, ignorando acentos)
+    const filteredSuggestions = query.length >= 1
         ? suggestions
             .filter((dep) => {
                 const nome = (dep.nome || dep.label || '').toLowerCase();
-                const searchTerms = query.toLowerCase().trim().split(/\s+/);
-                return searchTerms.every((term) => nome.includes(term));
+                const normalizedNome = removeAccents(nome);
+                const searchTerms = query.toLowerCase().trim().split(/\s+/).map(term => removeAccents(term));
+                
+                return searchTerms.every((term) => normalizedNome.includes(term));
             })
-            .slice(0, 5)
         : [];
 
-    const hasQuery = query.length >= 3;
+    const hasQuery = query.length >= 1;
     const showResults = showDropdown && hasQuery;
 
     // Fechar dropdown ao clicar fora
@@ -109,7 +119,13 @@ export default function SearchBar({
         display: 'flex',
         alignItems: 'center',
         backgroundColor: COLORS.white,
-        border: `1px solid ${showResults ? COLORS.orange : COLORS.borderLight}`,
+        border: `1px solid ${
+            isFocused || showResults 
+                ? COLORS.orange 
+                : isHovered 
+                    ? COLORS.borderMedium 
+                    : COLORS.borderLight
+        }`,
         borderRadius: showResults ? `${SPACING.radiusMd} ${SPACING.radiusMd} 0 0` : SPACING.radiusMd,
         padding: `${SPACING.sm} ${SPACING.md}`,
         gap: SPACING.sm,
@@ -138,7 +154,8 @@ export default function SearchBar({
         borderRadius: `0 0 ${SPACING.radiusMd} ${SPACING.radiusMd}`,
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
         zIndex: 200,
-        overflow: 'hidden',
+        overflowY: 'auto',
+        maxHeight: '220px', // Aproximadamente 5.5 itens para mostrar que há scroll
     };
 
     const suggestionStyle = (isHighlighted) => ({
@@ -183,31 +200,71 @@ export default function SearchBar({
         textAlign: 'center',
     };
 
-    // Função para destacar o texto que deu match
+    // Função para destacar o texto que deu match (ignorando acentos para o match, mas mantendo o original)
     const highlightMatch = (text, searchQuery) => {
-        if (!searchQuery || searchQuery.length < 3) return text;
-        const terms = searchQuery.toLowerCase().trim().split(/\s+/);
-        let result = text;
-        // Simples: retorna o texto com destaque
-        const regex = new RegExp(`(${terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
-        const parts = result.split(regex);
+        if (!searchQuery || searchQuery.length < 1) return text;
         
-        return parts.map((part, i) => {
-            const isMatch = terms.some(t => part.toLowerCase() === t.toLowerCase());
-            if (isMatch) {
-                return (
-                    <span key={i} style={{ color: COLORS.orange, fontWeight: FONTS.weightSemibold }}>
-                        {part}
-                    </span>
-                );
+        const normalizedText = removeAccents(text).toLowerCase();
+        const searchTerms = searchQuery.toLowerCase().trim().split(/\s+/).map(term => removeAccents(term));
+        
+        // Vamos criar uma lista de intervalos que devem ser destacados
+        let highlights = [];
+        searchTerms.forEach(term => {
+            if (!term) return;
+            let startPos = 0;
+            while ((startPos = normalizedText.indexOf(term, startPos)) !== -1) {
+                highlights.push({ start: startPos, end: startPos + term.length });
+                startPos += term.length;
             }
-            return part;
         });
+        
+        // Mesclar intervalos sobrepostos
+        if (highlights.length === 0) return text;
+        highlights.sort((a, b) => a.start - b.start);
+        
+        let mergedHighlights = [highlights[0]];
+        for (let i = 1; i < highlights.length; i++) {
+            let last = mergedHighlights[mergedHighlights.length - 1];
+            if (highlights[i].start <= last.end) {
+                last.end = Math.max(last.end, highlights[i].end);
+            } else {
+                mergedHighlights.push(highlights[i]);
+            }
+        }
+        
+        // Construir o array de elementos React
+        const result = [];
+        let lastIndex = 0;
+        
+        mergedHighlights.forEach((h, index) => {
+            // Texto antes do match
+            if (h.start > lastIndex) {
+                result.push(text.substring(lastIndex, h.start));
+            }
+            // Texto do match (original com destaque)
+            result.push(
+                <span key={index} style={{ color: COLORS.orange, fontWeight: FONTS.weightSemibold }}>
+                    {text.substring(h.start, h.end)}
+                </span>
+            );
+            lastIndex = h.end;
+        });
+        
+        // Restante do texto
+        if (lastIndex < text.length) {
+            result.push(text.substring(lastIndex));
+        }
+        
+        return result;
     };
 
     return (
         <div ref={containerRef} style={containerStyle}>
-            <div style={inputContainerStyle}>
+            <div 
+                style={inputContainerStyle}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
                 <input
                     ref={inputRef}
                     type="text"
@@ -215,7 +272,11 @@ export default function SearchBar({
                     value={query}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
-                    onFocus={() => setShowDropdown(true)}
+                    onFocus={() => {
+                        setShowDropdown(true);
+                        setIsFocused(true);
+                    }}
+                    onBlur={() => setIsFocused(false)}
                     style={inputStyle}
                 />
                 <svg
