@@ -19,6 +19,7 @@ export default function FiltersPanel({ onApply }) {
     const [presence, setPresence] = useState({ min: 0, max: 100 });
     const [voteSimilarity, setVoteSimilarity] = useState({ min: 80, max: 100 });
     const [vertexSize, setVertexSize] = useState('padrao');
+    const [graphLayout, setGraphLayout] = useState('forceatlas2_clusters');
 
     const separateOptions = [
         { value: 'partido', label: 'Partido' },
@@ -30,6 +31,11 @@ export default function FiltersPanel({ onApply }) {
         { value: 'padrao', label: 'Padrão' },
         { value: 'presenca', label: 'Presença' },
         { value: 'conexoes', label: 'Conexões' },
+    ];
+
+    const layoutOptions = [
+        { value: 'forceatlas2_spread', label: 'ForceAtlas2 (Espalhado)' },
+        { value: 'forceatlas2_clusters', label: 'ForceAtlas2 (Clusters)' },
     ];
 
     const filterIcon = (
@@ -71,6 +77,7 @@ export default function FiltersPanel({ onApply }) {
                 presence,
                 voteSimilarity,
                 vertexSize,
+                graphLayout,
             });
         }
     };
@@ -135,6 +142,14 @@ export default function FiltersPanel({ onApply }) {
                 title="Visualização"
                 defaultExpanded={true}
             >
+                <Dropdown
+                    label="Layout do grafo"
+                    options={layoutOptions}
+                    value={graphLayout}
+                    onChange={(e) => setGraphLayout(e.target.value)}
+                    style={{ flexDirection: 'column', alignItems: 'flex-start', gap: SPACING.sm }}
+                />
+                <div style={{ height: SPACING.sm }} />
                 <Dropdown
                     label="Tamanho do vértice"
                     options={vertexSizeOptions}

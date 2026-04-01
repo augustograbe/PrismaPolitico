@@ -20,6 +20,7 @@ export default function Grafo() {
         presence: { min: 0, max: 100 },
         voteSimilarity: { min: 80, max: 100 },
         vertexSize: 'padrao',
+        graphLayout: 'forceatlas2_clusters',
     });
 
     const pageStyle = {

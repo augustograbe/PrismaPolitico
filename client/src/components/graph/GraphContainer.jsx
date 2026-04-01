@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { SigmaContainer } from '@react-sigma/core';
 import Graph from 'graphology';
 import forceAtlas2 from 'graphology-layout-forceatlas2';
+import { circular, random } from 'graphology-layout';
+import noverlap from 'graphology-layout-noverlap';
 import '@react-sigma/core/lib/style.css';
 
 import { PARTY_COLORS, STATE_COLORS, SEX_COLORS, COLORS } from '../../constants/theme';
@@ -39,6 +41,7 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
     const graph = useMemo(() => new Graph(), []);
     const sigmaRef = useRef(null);
     const [dataLoaded, setDataLoaded] = useState(false);
+    const lastLayoutRef = useRef(null);
 
     // Inicializar o grafo uma vez buscando da API
     useEffect(() => {
@@ -49,7 +52,7 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
                     fetch('http://localhost:8000/api/deputados/'),
                     fetch('http://localhost:8000/api/arestas/')
                 ]);
-                
+
                 const deputados = await depReq.json();
                 const arestas = await arestasReq.json();
 
@@ -73,7 +76,7 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
                     const edgeId = `${sim.deputado_1}-${sim.deputado_2}`;
                     const n1 = String(sim.deputado_1);
                     const n2 = String(sim.deputado_2);
-                    
+
                     if (graph.hasNode(n1) && graph.hasNode(n2) && !graph.hasEdge(edgeId)) {
                         graph.addEdge(n1, n2, {
                             id: edgeId,
@@ -84,25 +87,7 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
                     }
                 });
 
-                // Somente aplicar o ForceAtlas2 se houver nós
-                if (graph.order > 0) {
-                    setTimeout(() => {
-                        try {
-                            const settings = forceAtlas2.inferSettings(graph);
-                            forceAtlas2.assign(graph, {
-                                iterations: 200,
-                                settings: {
-                                    ...settings,
-                                    gravity: 3,
-                                    scalingRatio: 10,
-                                },
-                            });
-                        } catch (e) {
-                            console.error("Erro no ForceAtlas2:", e);
-                        }
-                    }, 50);
-                }
-                
+                // Layout inicial será aplicado pelo applyFilters
                 setDataLoaded(true);
                 if (onDeputiesLoaded) onDeputiesLoaded(deputados);
 
@@ -110,16 +95,82 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
                 console.error("Erro ao carregar dados do grafo:", error);
             }
         }
-        
+
         loadData();
         return () => { isMounted = false; };
     }, [graph, onDeputiesLoaded]);
+
+    // Função para aplicar layout ao grafo
+    const applyLayout = useCallback((layoutType) => {
+        if (graph.order === 0) return;
+
+        try {
+            switch (layoutType) {
+                case 'forceatlas2_spread': {
+                    // Versão espalhada: gravidade muito baixa, repulsion alta (linLogMode) e anti-sobreposição
+                    random.assign(graph);
+                    const settingsSpread = forceAtlas2.inferSettings(graph);
+                    forceAtlas2.assign(graph, {
+                        iterations: 200,
+                        settings: {
+                            ...settingsSpread,
+                            gravity: 0.5,
+                            scalingRatio: 80,
+                            strongGravityMode: false,
+                            barnesHutOptimize: true,
+                            //linLogMode: true,           // clusters mais separados
+                            //adjustSizes: true,          // tenta não sobrepor muito baseado no tamanho
+                            edgeWeightInfluence: 0.1,   // reduz atração excessiva de nós com muitas arestas
+                        },
+                    });
+                    // Remove sobreposições com margem maior para espalhar
+                    noverlap.assign(graph, {
+                        maxIterations: 300,
+                        settings: {
+                            margin: 180,
+                            ratio: 80,
+                        },
+                    });
+                    break;
+                }
+                case 'forceatlas2_clusters': 
+                default: {
+                    // Versão com clusters mais definidos - gravidade forte
+                    random.assign(graph);
+                    const settingsClusters = forceAtlas2.inferSettings(graph);
+                    forceAtlas2.assign(graph, {
+                        iterations: 200,
+                        settings: {
+                            ...settingsClusters,
+                            gravity: 3,
+                            scalingRatio: 10,
+                            //strongGravityMode: true,
+                            //barnesHutOptimize: true,
+                        },
+                    });
+                    // Pequeno noverlap para os clusters não ficarem 100% ocultos
+                    noverlap.assign(graph, {
+                        maxIterations: 50,
+                        settings: {
+                            margin: 1,
+                            ratio: 1.2
+                        }
+                    });
+                    break;
+                }
+            }
+        } catch (e) {
+            console.error('Erro ao aplicar layout:', e);
+        }
+
+        lastLayoutRef.current = layoutType;
+    }, [graph]);
 
     // Aplicar filtros quando mudam
     const applyFilters = useCallback(() => {
         if (!filters || !dataLoaded) return;
 
-        const { separateBy, onlyActive, presence, voteSimilarity, vertexSize } = filters;
+        const { separateBy, onlyActive, presence, voteSimilarity, vertexSize, graphLayout } = filters;
 
         // Atualizar nós (cor e visibilidade)
         graph.forEachNode((nodeId) => {
@@ -250,11 +301,24 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
                 });
             }
         }
-    }, [graph, filters, dataLoaded]);
+
+        // Aplicar layout se mudou
+        const layoutToApply = graphLayout || 'forceatlas2';
+        if (lastLayoutRef.current !== layoutToApply) {
+            setTimeout(() => applyLayout(layoutToApply), 50);
+        }
+    }, [graph, filters, dataLoaded, applyLayout]);
 
     useEffect(() => {
         applyFilters();
     }, [applyFilters]);
+
+    // Aplicar layout inicial quando dados carregam
+    useEffect(() => {
+        if (dataLoaded && !lastLayoutRef.current) {
+            setTimeout(() => applyLayout('forceatlas2'), 50);
+        }
+    }, [dataLoaded, applyLayout]);
 
     const containerStyle = {
         position: 'fixed',
