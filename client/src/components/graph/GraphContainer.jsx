@@ -90,10 +90,10 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
                         try {
                             const settings = forceAtlas2.inferSettings(graph);
                             forceAtlas2.assign(graph, {
-                                iterations: 50,
+                                iterations: 200,
                                 settings: {
                                     ...settings,
-                                    gravity: 5,
+                                    gravity: 3,
                                     scalingRatio: 10,
                                 },
                             });
