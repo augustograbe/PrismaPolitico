@@ -19,6 +19,7 @@ export default function Grafo() {
         highlightPinned: true,
         presence: { min: 0, max: 100 },
         voteSimilarity: { min: 80, max: 100 },
+        vertexSize: 'padrao',
     });
 
     const pageStyle = {

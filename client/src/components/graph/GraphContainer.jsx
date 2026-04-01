@@ -119,9 +119,9 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
     const applyFilters = useCallback(() => {
         if (!filters || !dataLoaded) return;
 
-        const { separateBy, onlyActive, presence, voteSimilarity } = filters;
+        const { separateBy, onlyActive, presence, voteSimilarity, vertexSize } = filters;
 
-        // Atualizar nós
+        // Atualizar nós (cor e visibilidade)
         graph.forEachNode((nodeId) => {
             const dep = graph.getNodeAttribute(nodeId, 'deputyData');
             if (!dep) return;
@@ -161,6 +161,95 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
 
             graph.setEdgeAttribute(edgeId, 'hidden', hidden);
         });
+
+        // Aplicar tamanho dos vértices baseado no critério selecionado
+        const DEFAULT_SIZE = 8;
+        const MIN_SIZE = 4;
+        const MAX_SIZE = 20;
+
+        if (vertexSize === 'padrao' || !vertexSize) {
+            // Tamanho padrão uniforme
+            graph.forEachNode((nodeId) => {
+                graph.setNodeAttribute(nodeId, 'size', DEFAULT_SIZE);
+            });
+        } else if (vertexSize === 'presenca') {
+            // Tamanho proporcional à presença do deputado
+            // Coletar os valores de presença dos nós visíveis para normalizar
+            let minPresenca = Infinity;
+            let maxPresenca = -Infinity;
+
+            graph.forEachNode((nodeId) => {
+                if (graph.getNodeAttribute(nodeId, 'hidden')) return;
+                const dep = graph.getNodeAttribute(nodeId, 'deputyData');
+                if (dep && dep.presenca !== undefined) {
+                    const p = Number(dep.presenca);
+                    if (p < minPresenca) minPresenca = p;
+                    if (p > maxPresenca) maxPresenca = p;
+                }
+            });
+
+            // Se não há variação, usar tamanho padrão
+            if (minPresenca === Infinity || maxPresenca === minPresenca) {
+                graph.forEachNode((nodeId) => {
+                    graph.setNodeAttribute(nodeId, 'size', DEFAULT_SIZE);
+                });
+            } else {
+                const range = maxPresenca - minPresenca;
+                graph.forEachNode((nodeId) => {
+                    if (graph.getNodeAttribute(nodeId, 'hidden')) {
+                        graph.setNodeAttribute(nodeId, 'size', DEFAULT_SIZE);
+                        return;
+                    }
+                    const dep = graph.getNodeAttribute(nodeId, 'deputyData');
+                    if (dep && dep.presenca !== undefined) {
+                        const normalized = (Number(dep.presenca) - minPresenca) / range;
+                        const size = MIN_SIZE + normalized * (MAX_SIZE - MIN_SIZE);
+                        graph.setNodeAttribute(nodeId, 'size', size);
+                    } else {
+                        graph.setNodeAttribute(nodeId, 'size', DEFAULT_SIZE);
+                    }
+                });
+            }
+        } else if (vertexSize === 'conexoes') {
+            // Tamanho proporcional ao número de arestas visíveis conectadas ao nó
+            const connectionCounts = {};
+
+            // Contar apenas arestas não-escondidas para cada nó visível
+            graph.forEachEdge((edgeId, attrs, source, target) => {
+                if (graph.getEdgeAttribute(edgeId, 'hidden')) return;
+
+                connectionCounts[source] = (connectionCounts[source] || 0) + 1;
+                connectionCounts[target] = (connectionCounts[target] || 0) + 1;
+            });
+
+            // Encontrar min e max para normalizar
+            let minConn = Infinity;
+            let maxConn = -Infinity;
+            graph.forEachNode((nodeId) => {
+                if (graph.getNodeAttribute(nodeId, 'hidden')) return;
+                const count = connectionCounts[nodeId] || 0;
+                if (count < minConn) minConn = count;
+                if (count > maxConn) maxConn = count;
+            });
+
+            if (minConn === Infinity || maxConn === minConn) {
+                graph.forEachNode((nodeId) => {
+                    graph.setNodeAttribute(nodeId, 'size', DEFAULT_SIZE);
+                });
+            } else {
+                const range = maxConn - minConn;
+                graph.forEachNode((nodeId) => {
+                    if (graph.getNodeAttribute(nodeId, 'hidden')) {
+                        graph.setNodeAttribute(nodeId, 'size', DEFAULT_SIZE);
+                        return;
+                    }
+                    const count = connectionCounts[nodeId] || 0;
+                    const normalized = (count - minConn) / range;
+                    const size = MIN_SIZE + normalized * (MAX_SIZE - MIN_SIZE);
+                    graph.setNodeAttribute(nodeId, 'size', size);
+                });
+            }
+        }
     }, [graph, filters, dataLoaded]);
 
     useEffect(() => {
@@ -186,7 +275,6 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
             labelColor: { color: COLORS.textDark },
             defaultEdgeType: 'line',
             renderEdgeLabels: false,
-            hideEdgesOnMove: true,
             zoomingRatio: 1.15,
             zIndex: true,
             minCameraRatio: 0.2,
