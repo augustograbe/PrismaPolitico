@@ -59,7 +59,7 @@ export default function FiltersPanel({ onApply }) {
         </svg>
     );
 
-    const topOffset = `calc(52px + ${SPACING.frameGap} + ${SPACING.frameGap})`;
+    const topOffset = `calc(52px + ${SPACING.frameGap} + ${SPACING.frameGap} + 96px + ${SPACING.frameGap})`;
 
     const contentStyle = {
         padding: SPACING.lg,
