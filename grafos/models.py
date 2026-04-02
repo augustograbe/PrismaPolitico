@@ -11,6 +11,7 @@ class GrafoAresta(models.Model):
     legislatura = models.IntegerField()
     similaridade = models.FloatField(help_text='Percentual de similaridade de votos (0 a 100)')
     votos_em_comum = models.IntegerField(default=0, help_text='Qtd de votações em que ambos participaram')
+    coautoria = models.IntegerField(default=0, help_text='Qtd de projetos de lei coautorados pelo par')
 
     class Meta:
         unique_together = ('deputado_1', 'deputado_2', 'legislatura')

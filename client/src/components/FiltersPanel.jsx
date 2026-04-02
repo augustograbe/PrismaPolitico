@@ -12,12 +12,13 @@ import { COLORS, SPACING } from '../constants/theme';
  * Props:
  * - onApply: callback (filters) ao clicar em Aplicar
  */
-export default function FiltersPanel({ onApply }) {
+export default function FiltersPanel({ onApply, graphType = 'similaridade' }) {
     const [separateBy, setSeparateBy] = useState('partido');
     const [onlyActive, setOnlyActive] = useState(true);
     const [highlightPinned, setHighlightPinned] = useState(true);
     const [presence, setPresence] = useState({ min: 0, max: 100 });
     const [voteSimilarity, setVoteSimilarity] = useState({ min: 80, max: 100 });
+    const [coautoria, setCoautoria] = useState({ min: 1, max: 50 });
     const [vertexSize, setVertexSize] = useState('padrao');
     const [graphLayout, setGraphLayout] = useState('forceatlas2_clusters');
 
@@ -76,6 +77,7 @@ export default function FiltersPanel({ onApply }) {
                 highlightPinned,
                 presence,
                 voteSimilarity,
+                coautoria,
                 vertexSize,
                 graphLayout,
             });
@@ -126,14 +128,25 @@ export default function FiltersPanel({ onApply }) {
                     onChange={setPresence}
                 />
 
-                <RangeSlider
-                    label="Similaridade dos votos"
-                    min={80}
-                    max={100}
-                    valueMin={voteSimilarity.min}
-                    valueMax={voteSimilarity.max}
-                    onChange={setVoteSimilarity}
-                />
+                {graphType === 'coautoria' ? (
+                    <RangeSlider
+                        label="Coautorias"
+                        min={1}
+                        max={50}
+                        valueMin={coautoria.min}
+                        valueMax={coautoria.max}
+                        onChange={setCoautoria}
+                    />
+                ) : (
+                    <RangeSlider
+                        label="Similaridade dos votos"
+                        min={80}
+                        max={100}
+                        valueMin={voteSimilarity.min}
+                        valueMax={voteSimilarity.max}
+                        onChange={setVoteSimilarity}
+                    />
+                )}
             </div>
 
             {/* Seções colapsáveis - fora do padding para ocupar largura total */}

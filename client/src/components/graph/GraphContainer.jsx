@@ -37,68 +37,95 @@ function getNodeColor(deputy, separateBy) {
  * - selectedNode: id do nó selecionado (string | null)
  * - onNodeClick: callback quando um nó é clicado
  */
-export default function GraphContainer({ filters, selectedNode, onNodeClick, onDeputiesLoaded }) {
+export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded }) {
     const graph = useMemo(() => new Graph(), []);
     const sigmaRef = useRef(null);
     const [dataLoaded, setDataLoaded] = useState(false);
     const lastLayoutRef = useRef(null);
+    const lastGraphTypeRef = useRef(null);
 
-    // Inicializar o grafo uma vez buscando da API
+    // Inicializar o grafo uma vez buscando deputados da API
     useEffect(() => {
         let isMounted = true;
-        async function loadData() {
+        async function loadNodes() {
             try {
-                const [depReq, arestasReq] = await Promise.all([
-                    fetch('http://localhost:8000/api/deputados/'),
-                    fetch('http://localhost:8000/api/arestas/')
-                ]);
-
+                const depReq = await fetch('http://localhost:8000/api/deputados/');
                 const deputados = await depReq.json();
-                const arestas = await arestasReq.json();
 
                 if (!isMounted) return;
 
                 // Adicionar todos os nós
                 deputados.forEach((dep) => {
-                    graph.addNode(String(dep.id), {
-                        label: dep.nome,
-                        x: Math.random() * 100,
-                        y: Math.random() * 100,
-                        size: 8,
-                        color: getNodeColor(dep, 'partido'),
-                        // Dados customizados
-                        deputyData: dep,
-                    });
-                });
-
-                // Adicionar arestas (O script gera similaridade precalculada)
-                arestas.forEach((sim) => {
-                    const edgeId = `${sim.deputado_1}-${sim.deputado_2}`;
-                    const n1 = String(sim.deputado_1);
-                    const n2 = String(sim.deputado_2);
-
-                    if (graph.hasNode(n1) && graph.hasNode(n2) && !graph.hasEdge(edgeId)) {
-                        graph.addEdge(n1, n2, {
-                            id: edgeId,
-                            size: 1,
-                            color: COLORS.edgeDefault,
-                            similaridade: Number(sim.similaridade),
+                    if (!graph.hasNode(String(dep.id))) {
+                        graph.addNode(String(dep.id), {
+                            label: dep.nome,
+                            x: Math.random() * 100,
+                            y: Math.random() * 100,
+                            size: 8,
+                            color: getNodeColor(dep, 'partido'),
+                            deputyData: dep,
                         });
                     }
                 });
 
-                // Layout inicial será aplicado pelo applyFilters
                 setDataLoaded(true);
                 if (onDeputiesLoaded) onDeputiesLoaded(deputados);
 
             } catch (error) {
-                console.error("Erro ao carregar dados do grafo:", error);
+                console.error("Erro ao carregar deputados:", error);
             }
         }
 
-        loadData();
+        loadNodes();
         return () => { isMounted = false; };
     }, [graph, onDeputiesLoaded]);
+
+    // Carregar arestas quando o tipo de grafo muda
+    const loadEdges = useCallback(async (type) => {
+        if (graph.order === 0) return;
+
+        // Remover todas as arestas atuais
+        graph.clearEdges();
+
+        const edgeUrl = type === 'coautoria'
+            ? 'http://localhost:8000/api/arestas-coautoria/'
+            : 'http://localhost:8000/api/arestas/';
+
+        try {
+            const res = await fetch(edgeUrl);
+            const arestas = await res.json();
+
+            arestas.forEach((sim) => {
+                const edgeId = `${sim.deputado_1}-${sim.deputado_2}`;
+                const n1 = String(sim.deputado_1);
+                const n2 = String(sim.deputado_2);
+
+                if (graph.hasNode(n1) && graph.hasNode(n2) && !graph.hasEdge(edgeId)) {
+                    graph.addEdge(n1, n2, {
+                        id: edgeId,
+                        size: 1,
+                        color: COLORS.edgeDefault,
+                        similaridade: Number(sim.similaridade || 0),
+                        coautoria: Number(sim.coautoria || 0),
+                    });
+                }
+            });
+
+            lastGraphTypeRef.current = type;
+            // Forçar re-layout após troca de arestas
+            lastLayoutRef.current = null;
+        } catch (error) {
+            console.error("Erro ao carregar arestas:", error);
+        }
+    }, [graph]);
+
+    // Efeito: carregar arestas quando dados estiverem prontos ou graphType mudar
+    useEffect(() => {
+        if (!dataLoaded) return;
+        if (lastGraphTypeRef.current !== graphType) {
+            loadEdges(graphType);
+        }
+    }, [dataLoaded, graphType, loadEdges]);
 
     // Função para aplicar layout ao grafo
     const applyLayout = useCallback((layoutType) => {
@@ -197,18 +224,25 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
             graph.setNodeAttribute(nodeId, 'hidden', hidden);
         });
 
-        // Atualizar arestas baseado na similaridade de votos
+        // Atualizar arestas baseado no tipo de grafo
         graph.forEachEdge((edgeId, attrs, source, target) => {
-            const sim = attrs.similaridade;
             const sourceHidden = graph.getNodeAttribute(source, 'hidden');
             const targetHidden = graph.getNodeAttribute(target, 'hidden');
 
-            // Esconder aresta se algum dos nós está oculto ou se similaridade fora do range
-            const hidden =
-                sourceHidden ||
-                targetHidden ||
-                sim < voteSimilarity.min ||
-                sim > voteSimilarity.max;
+            let hidden = sourceHidden || targetHidden;
+
+            if (!hidden) {
+                if (graphType === 'coautoria') {
+                    // Filtrar por coautorias
+                    const coaut = attrs.coautoria || 0;
+                    const coautoriaRange = filters.coautoria || { min: 1, max: 999 };
+                    hidden = coaut < coautoriaRange.min || coaut > coautoriaRange.max;
+                } else {
+                    // Filtrar por similaridade
+                    const sim = attrs.similaridade;
+                    hidden = sim < voteSimilarity.min || sim > voteSimilarity.max;
+                }
+            }
 
             graph.setEdgeAttribute(edgeId, 'hidden', hidden);
         });
@@ -307,7 +341,7 @@ export default function GraphContainer({ filters, selectedNode, onNodeClick, onD
         if (lastLayoutRef.current !== layoutToApply) {
             setTimeout(() => applyLayout(layoutToApply), 50);
         }
-    }, [graph, filters, dataLoaded, applyLayout]);
+    }, [graph, filters, dataLoaded, applyLayout, graphType]);
 
     useEffect(() => {
         applyFilters();

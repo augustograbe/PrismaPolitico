@@ -21,6 +21,7 @@ export default function Grafo() {
         highlightPinned: true,
         presence: { min: 0, max: 100 },
         voteSimilarity: { min: 80, max: 100 },
+        coautoria: { min: 1, max: 50 },
         vertexSize: 'padrao',
         graphLayout: 'forceatlas2_clusters',
     });
@@ -101,6 +102,7 @@ export default function Grafo() {
             {/* Grafo no fundo - ocupa toda a tela */}
             <GraphContainer
                 filters={filters}
+                graphType={graphType}
                 selectedNode={selectedDeputy ? String(selectedDeputy.nodeId || selectedDeputy.id) : null}
                 onNodeClick={handleNodeClick}
                 onDeputiesLoaded={handleDeputiesLoaded}
@@ -113,7 +115,7 @@ export default function Grafo() {
             />
 
             {/* Painel de filtros - canto superior direito */}
-            <FiltersPanel onApply={handleApplyFilters} />
+            <FiltersPanel onApply={handleApplyFilters} graphType={graphType} />
 
             {/* Card de deputado - canto superior esquerdo (aparece ao clicar num vértice) */}
             <DeputyCard

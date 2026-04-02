@@ -2,15 +2,16 @@ import requests
 import pandas as pd
 import io
 from django.core.management.base import BaseCommand
-from deputados.models import Deputado, Partido, Orgao, Proposicao, Votacao, Voto
+from deputados.models import Deputado, Partido, Orgao, Proposicao, Votacao, Voto, ProposicaoAutor
 from tqdm import tqdm
 from datetime import datetime
 import warnings
+import time
 
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 class Command(BaseCommand):
-    help = 'Coleta dados reais da API da Câmara (Deputados, Partidos, Órgãos) e via CSV (Votações e Votos) para maior velocidade.'
+    help = 'Coleta dados reais da API da Câmara (Deputados, Partidos, Órgãos, Votações, Proposições) e via CSV (Votos) para maior velocidade.'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -216,5 +217,100 @@ class Command(BaseCommand):
                         
             if votos_objs:
                 Voto.objects.bulk_create(votos_objs, ignore_conflicts=True)
+
+        # 5. Proposições (Projetos de Lei) e seus Autores via CSVs
+        self.stdout.write(self.style.WARNING("\n>> Baixando e Processando Proposições e Autores via CSV..."))
+        
+        for ano in anos:
+            self.stdout.write(self.style.WARNING(f"\n--- Proposições Ano {ano} ---"))
+            
+            # Baixar proposicoes
+            url_props = f'http://dadosabertos.camara.leg.br/arquivos/proposicoes/csv/proposicoes-{ano}.csv'
+            df_props = self.download_and_read_csv(url_props)
+            
+            if df_props.empty:
+                self.stdout.write(self.style.ERROR(f"Arquivo de proposições de {ano} vazio ou não acessível."))
+                continue
+                
+            # Filtrar apenas Projetos de Lei (PL) - a coluna correta no CSV geralmente é siglaTipo
+            if 'siglaTipo' in df_props.columns:
+                df_pls = df_props[df_props['siglaTipo'] == 'PL']
+            else:
+                self.stdout.write(self.style.ERROR("Coluna 'siglaTipo' não encontrada no CSV de proposições."))
+                continue
+
+            self.stdout.write(f"Total de PLs em {ano}: {len(df_pls)}")
+            
+            # Salvar proposições
+            prop_objs = []
+            prop_ids_validos = set()
+            
+            for _, row in tqdm(df_pls.iterrows(), total=len(df_pls), desc=f"Salvando PLs {ano}"):
+                p_id = int(row['id'])
+                prop_ids_validos.add(p_id)
+                prop_objs.append(
+                    Proposicao(
+                        id=p_id,
+                        uri=str(row.get('uri', '')),
+                        sigla_tipo=str(row.get('siglaTipo', '')),
+                        numero=int(row['numero']) if pd.notna(row.get('numero')) else None,
+                        ano=int(row['ano']) if pd.notna(row.get('ano')) else None,
+                        ementa=str(row.get('ementa', '')),
+                    )
+                )
+                
+                if len(prop_objs) >= 5000:
+                    Proposicao.objects.bulk_create(prop_objs, ignore_conflicts=True)
+                    prop_objs = []
+                    
+            if prop_objs:
+                Proposicao.objects.bulk_create(prop_objs, ignore_conflicts=True)
+                
+            # Baixar autores
+            self.stdout.write(self.style.WARNING(f"Baixando autores {ano}..."))
+            url_autores = f'http://dadosabertos.camara.leg.br/arquivos/proposicoesAutores/csv/proposicoesAutores-{ano}.csv'
+            df_autores = self.download_and_read_csv(url_autores)
+            
+            if df_autores.empty:
+                self.stdout.write(self.style.ERROR(f"Arquivo de autores de {ano} vazio ou não acessível."))
+                continue
+                
+            # Salvar relações
+            autores_objs = []
+            
+            # Colunas esperadas: idProposicao, uriProposicao, idDeputadoAutor, uriAutor, codTipoAutor, tipoAutor, nomeAutor...
+            # A API usa idDeputadoAutor quando o autor é deputado
+            col_id_prop = 'idProposicao'
+            col_id_dep = 'idDeputadoAutor'
+            
+            if col_id_prop not in df_autores.columns or col_id_dep not in df_autores.columns:
+                 self.stdout.write(self.style.ERROR("Colunas necessárias não encontradas no CSV de autores."))
+                 continue
+                 
+            for _, row in tqdm(df_autores.iterrows(), total=len(df_autores), desc=f"Salvando Autores {ano}"):
+                try:
+                    p_id = int(row[col_id_prop])
+                    
+                    if pd.isna(row[col_id_dep]):
+                        continue
+                        
+                    d_id = int(float(row[col_id_dep]))
+                    
+                    if p_id in prop_ids_validos and d_id in deps_validos:
+                        autores_objs.append(
+                            ProposicaoAutor(
+                                proposicao_id=p_id,
+                                deputado_id=d_id,
+                            )
+                        )
+                        
+                        if len(autores_objs) >= 10000:
+                            ProposicaoAutor.objects.bulk_create(autores_objs, ignore_conflicts=True)
+                            autores_objs = []
+                except Exception:
+                    continue
+                    
+            if autores_objs:
+                ProposicaoAutor.objects.bulk_create(autores_objs, ignore_conflicts=True)
 
         self.stdout.write(self.style.SUCCESS("\nProcesso concluído com sucesso!"))

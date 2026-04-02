@@ -92,3 +92,14 @@ class Voto(models.Model):
 
     def __str__(self):
         return f'{self.deputado.nome} -> {self.tipo_voto} ({self.votacao.id})'
+
+class ProposicaoAutor(models.Model):
+    proposicao = models.ForeignKey(Proposicao, on_delete=models.CASCADE, related_name='autores')
+    deputado = models.ForeignKey(Deputado, on_delete=models.CASCADE, related_name='proposicoes_autoradas')
+
+    class Meta:
+        unique_together = ('proposicao', 'deputado')
+        verbose_name_plural = 'Autores de Proposições'
+
+    def __str__(self):
+        return f'{self.deputado.nome} -> {self.proposicao}'
