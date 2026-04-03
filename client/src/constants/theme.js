@@ -65,7 +65,7 @@ export const PARTY_COLORS = {
     AVANTE: '#6b9ba1',
     PSC: '#19ae48',
     PCDOB: '#8c111e',
-    'PC DO B': '#8c111e',
+    'PCdoB': '#8c111e',
     PV: '#04441a',
     CIDADANIA: '#d41e7f',
     PATRIOTA: '#009ca6',
