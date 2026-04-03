@@ -1,5 +1,6 @@
 import Button from './Button';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../constants/theme';
+import { Pin, PinOff } from 'lucide-react';
 
 /**
  * DeputyCard - Card de deputado com barra colorida, foto circular sobreposta, informações e botões
@@ -13,6 +14,7 @@ import { COLORS, SPACING, FONTS, SHADOWS } from '../constants/theme';
 export default function DeputyCard({
     deputy = null,
     visible = true,
+    isPinned = false,
     onClose,
     onPin,
     onProfile,
@@ -204,11 +206,9 @@ export default function DeputyCard({
         padding: `${SPACING.xs} ${SPACING.lg} ${SPACING.lg}`,
     };
 
-    const pinIcon = (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M7 1v4M4 5h6l-1 4H5L4 5zM5 9l-1 4M9 9l1 4" />
-        </svg>
-    );
+    const pinIconEl = isPinned
+        ? <PinOff size={14} />
+        : <Pin size={14} />;
 
     const profileIcon = (
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -296,8 +296,8 @@ export default function DeputyCard({
 
                 {/* Buttons */}
                 <div style={buttonsStyle}>
-                    <Button variant="outline" icon={pinIcon} onClick={onPin} style={{ flex: 1, fontSize: FONTS.sizeSm, padding: `${SPACING.sm} ${SPACING.md}` }}>
-                        Fixar
+                    <Button variant="outline" icon={pinIconEl} onClick={onPin} style={{ flex: 1, fontSize: FONTS.sizeSm, padding: `${SPACING.sm} ${SPACING.md}` }}>
+                        {isPinned ? 'Desfixar' : 'Fixar'}
                     </Button>
                     <Button variant="outline" icon={profileIcon} onClick={onProfile} style={{ flex: 1, fontSize: FONTS.sizeSm, padding: `${SPACING.sm} ${SPACING.md}` }}>
                         Perfil

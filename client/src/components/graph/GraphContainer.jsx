@@ -37,7 +37,7 @@ function getNodeColor(deputy, separateBy) {
  * - selectedNode: id do nó selecionado (string | null)
  * - onNodeClick: callback quando um nó é clicado
  */
-export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded, onMaxCoautoriaLoaded }) {
+export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded, onMaxCoautoriaLoaded, pinnedIds = [], highlightPinned = true }) {
     const graph = useMemo(() => new Graph(), []);
     const sigmaRef = useRef(null);
     const [dataLoaded, setDataLoaded] = useState(false);
@@ -443,7 +443,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                     style={{ width: '100%', height: '100%' }}
                 >
                     <GraphEventsController setSelectedNode={handleNodeClick} />
-                    <GraphSettingsController selectedNode={selectedNode} />
+                    <GraphSettingsController selectedNode={selectedNode} pinnedIds={pinnedIds} highlightPinned={highlightPinned} />
                 </SigmaContainer>
             ) : (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>

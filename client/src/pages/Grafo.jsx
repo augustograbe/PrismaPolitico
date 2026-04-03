@@ -1,11 +1,31 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import TopBar from '../components/layout/TopBar';
 import FiltersPanel from '../components/FiltersPanel';
 import InfoFrame from '../components/layout/InfoFrame';
 import DeputyCard from '../components/DeputyCard';
+import PinnedPanel from '../components/PinnedPanel';
 import GraphContainer from '../components/graph/GraphContainer';
 import Frame from '../components/Frame';
 import { COLORS, SPACING, FONTS } from '../constants/theme';
+
+const PINNED_STORAGE_KEY = 'prisma_politico_pinned';
+
+function loadPinnedFromStorage() {
+    try {
+        const stored = localStorage.getItem(PINNED_STORAGE_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch {
+        return [];
+    }
+}
+
+function savePinnedToStorage(pinned) {
+    try {
+        localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(pinned));
+    } catch {
+        // Ignore storage errors
+    }
+}
 
 /**
  * Grafo - Página principal com visualização de grafos
@@ -16,6 +36,7 @@ export default function Grafo() {
     const [deputyList, setDeputyList] = useState([]);
     const [graphType, setGraphType] = useState('similaridade');
     const [maxCoautoriaLimit, setMaxCoautoriaLimit] = useState(50);
+    const [pinnedDeputies, setPinnedDeputies] = useState(() => loadPinnedFromStorage());
     const [filters, setFilters] = useState({
         separateBy: 'partido',
         onlyActive: true,
@@ -27,6 +48,11 @@ export default function Grafo() {
         vertexSize: 'padrao',
         graphLayout: 'forceatlas2_clusters',
     });
+
+    // Persist pinned list to localStorage whenever it changes
+    useEffect(() => {
+        savePinnedToStorage(pinnedDeputies);
+    }, [pinnedDeputies]);
 
     const graphTypeOptions = [
         { value: 'similaridade', label: 'Similaridade de votos' },
@@ -67,16 +93,51 @@ export default function Grafo() {
         }));
     }, []);
 
+    // Fixar/Desfixar deputado
+    const handleTogglePin = useCallback(() => {
+        if (!selectedDeputy) return;
+        const depId = selectedDeputy.id;
+
+        setPinnedDeputies(prev => {
+            const exists = prev.some(p => p.id === depId);
+            if (exists) {
+                return prev.filter(p => p.id !== depId);
+            } else {
+                return [...prev, {
+                    id: depId,
+                    nome: selectedDeputy.nome,
+                    sigla_partido: selectedDeputy.sigla_partido || selectedDeputy.partido,
+                }];
+            }
+        });
+    }, [selectedDeputy]);
+
+    // Remover da lista de fixados
+    const handleRemovePinned = useCallback((depId) => {
+        setPinnedDeputies(prev => prev.filter(p => p.id !== depId));
+    }, []);
+
     // Quando um deputado é selecionado pela pesquisa no TopBar,
     // simula o mesmo comportamento de clicar no vértice dele
     const handleSearchSelectDeputy = useCallback((dep) => {
         const nodeId = String(dep.id);
-        // Usar os mesmos dados que o grafo usa ao clicar num nó
         setSelectedDeputy({
             ...dep,
             nodeId,
         });
     }, []);
+
+    // Quando um deputado fixado é clicado na lista
+    const handleSelectPinned = useCallback((pinnedDep) => {
+        // Tentar encontrar dados completos na deputyList
+        const fullDep = deputyList.find(d => d.id === pinnedDep.id);
+        const dep = fullDep || pinnedDep;
+        const nodeId = String(dep.id);
+        setSelectedDeputy({
+            ...dep,
+            nodeId,
+        });
+    }, [deputyList]);
 
     // Ícone de grafo para o seletor
     const graphIcon = (
@@ -107,6 +168,9 @@ export default function Grafo() {
         backgroundPosition: `right ${SPACING.md} center`,
     };
 
+    const pinnedIds = pinnedDeputies.map(p => p.id);
+    const isSelectedPinned = selectedDeputy ? pinnedIds.includes(selectedDeputy.id) : false;
+
     return (
         <div style={pageStyle}>
             {/* Grafo no fundo - ocupa toda a tela */}
@@ -117,6 +181,8 @@ export default function Grafo() {
                 onNodeClick={handleNodeClick}
                 onDeputiesLoaded={handleDeputiesLoaded}
                 onMaxCoautoriaLoaded={handleMaxCoautoriaLoaded}
+                pinnedIds={pinnedIds}
+                highlightPinned={filters.highlightPinned}
             />
 
             {/* Barra superior */}
@@ -136,7 +202,9 @@ export default function Grafo() {
             <DeputyCard
                 deputy={selectedDeputy}
                 visible={!!selectedDeputy}
+                isPinned={isSelectedPinned}
                 onClose={handleCloseCard}
+                onPin={handleTogglePin}
             />
 
             {/* Info frame - canto inferior esquerdo */}
@@ -171,6 +239,13 @@ export default function Grafo() {
                     </select>
                 </div>
             </Frame>
+
+            {/* Painel de fixados - canto inferior direito */}
+            <PinnedPanel
+                pinnedDeputies={pinnedDeputies}
+                onRemove={handleRemovePinned}
+                onSelect={handleSelectPinned}
+            />
         </div>
     );
 }
