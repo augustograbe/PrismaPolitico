@@ -19,6 +19,7 @@ export default function RangeSlider({
     valueMin = 0,
     valueMax = 100,
     onChange,
+    formatLabel,
     style = {},
 }) {
     const trackRef = useRef(null);
@@ -137,8 +138,8 @@ export default function RangeSlider({
                 />
             </div>
             <div style={valuesStyle}>
-                <span>{valueMin}%</span>
-                <span>{valueMax}%</span>
+                <span>{formatLabel ? formatLabel(valueMin) : `${valueMin}%`}</span>
+                <span>{formatLabel ? formatLabel(valueMax) : `${valueMax}%`}</span>
             </div>
         </div>
     );

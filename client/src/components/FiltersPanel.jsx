@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Frame from './Frame';
 import Dropdown from './Dropdown';
 import Checkbox from './Checkbox';
@@ -12,15 +12,20 @@ import { COLORS, SPACING } from '../constants/theme';
  * Props:
  * - onApply: callback (filters) ao clicar em Aplicar
  */
-export default function FiltersPanel({ onApply, graphType = 'similaridade' }) {
+export default function FiltersPanel({ onApply, graphType = 'similaridade', maxCoautoriaLimit = 50 }) {
     const [separateBy, setSeparateBy] = useState('partido');
     const [onlyActive, setOnlyActive] = useState(true);
     const [highlightPinned, setHighlightPinned] = useState(true);
+    const [onlyWithConnections, setOnlyWithConnections] = useState(false);
     const [presence, setPresence] = useState({ min: 0, max: 100 });
     const [voteSimilarity, setVoteSimilarity] = useState({ min: 80, max: 100 });
     const [coautoria, setCoautoria] = useState({ min: 1, max: 50 });
     const [vertexSize, setVertexSize] = useState('padrao');
     const [graphLayout, setGraphLayout] = useState('forceatlas2_clusters');
+
+    useEffect(() => {
+        setCoautoria({ min: 1, max: maxCoautoriaLimit });
+    }, [maxCoautoriaLimit]);
 
     const separateOptions = [
         { value: 'partido', label: 'Partido' },
@@ -75,6 +80,7 @@ export default function FiltersPanel({ onApply, graphType = 'similaridade' }) {
                 separateBy,
                 onlyActive,
                 highlightPinned,
+                onlyWithConnections,
                 presence,
                 voteSimilarity,
                 coautoria,
@@ -119,6 +125,12 @@ export default function FiltersPanel({ onApply, graphType = 'similaridade' }) {
                     onChange={setHighlightPinned}
                 />
 
+                <Checkbox
+                    label="Apenas com conexões"
+                    checked={onlyWithConnections}
+                    onChange={setOnlyWithConnections}
+                />
+
                 <RangeSlider
                     label="Presença"
                     min={0}
@@ -132,10 +144,11 @@ export default function FiltersPanel({ onApply, graphType = 'similaridade' }) {
                     <RangeSlider
                         label="Coautorias"
                         min={1}
-                        max={50}
+                        max={maxCoautoriaLimit}
                         valueMin={coautoria.min}
                         valueMax={coautoria.max}
                         onChange={setCoautoria}
+                        formatLabel={(val) => String(val)}
                     />
                 ) : (
                     <RangeSlider

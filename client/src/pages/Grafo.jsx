@@ -15,10 +15,12 @@ export default function Grafo() {
     const [selectedDeputy, setSelectedDeputy] = useState(null);
     const [deputyList, setDeputyList] = useState([]);
     const [graphType, setGraphType] = useState('similaridade');
+    const [maxCoautoriaLimit, setMaxCoautoriaLimit] = useState(50);
     const [filters, setFilters] = useState({
         separateBy: 'partido',
         onlyActive: true,
         highlightPinned: true,
+        onlyWithConnections: false,
         presence: { min: 0, max: 100 },
         voteSimilarity: { min: 80, max: 100 },
         coautoria: { min: 1, max: 50 },
@@ -55,6 +57,14 @@ export default function Grafo() {
 
     const handleDeputiesLoaded = useCallback((deputies) => {
         setDeputyList(deputies);
+    }, []);
+
+    const handleMaxCoautoriaLoaded = useCallback((maxC) => {
+        setMaxCoautoriaLimit(maxC);
+        setFilters(prev => ({
+            ...prev,
+            coautoria: { min: 1, max: maxC }
+        }));
     }, []);
 
     // Quando um deputado é selecionado pela pesquisa no TopBar,
@@ -106,6 +116,7 @@ export default function Grafo() {
                 selectedNode={selectedDeputy ? String(selectedDeputy.nodeId || selectedDeputy.id) : null}
                 onNodeClick={handleNodeClick}
                 onDeputiesLoaded={handleDeputiesLoaded}
+                onMaxCoautoriaLoaded={handleMaxCoautoriaLoaded}
             />
 
             {/* Barra superior */}
@@ -115,7 +126,11 @@ export default function Grafo() {
             />
 
             {/* Painel de filtros - canto superior direito */}
-            <FiltersPanel onApply={handleApplyFilters} graphType={graphType} />
+            <FiltersPanel 
+                onApply={handleApplyFilters} 
+                graphType={graphType} 
+                maxCoautoriaLimit={maxCoautoriaLimit}
+            />
 
             {/* Card de deputado - canto superior esquerdo (aparece ao clicar num vértice) */}
             <DeputyCard

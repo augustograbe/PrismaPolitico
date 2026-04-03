@@ -37,10 +37,11 @@ function getNodeColor(deputy, separateBy) {
  * - selectedNode: id do nó selecionado (string | null)
  * - onNodeClick: callback quando um nó é clicado
  */
-export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded }) {
+export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded, onMaxCoautoriaLoaded }) {
     const graph = useMemo(() => new Graph(), []);
     const sigmaRef = useRef(null);
     const [dataLoaded, setDataLoaded] = useState(false);
+    const [edgesVersion, setEdgesVersion] = useState(0);
     const lastLayoutRef = useRef(null);
     const lastGraphTypeRef = useRef(null);
 
@@ -94,11 +95,16 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
         try {
             const res = await fetch(edgeUrl);
             const arestas = await res.json();
+            
+            let maxC = 0;
 
             arestas.forEach((sim) => {
                 const edgeId = `${sim.deputado_1}-${sim.deputado_2}`;
                 const n1 = String(sim.deputado_1);
                 const n2 = String(sim.deputado_2);
+                
+                const cVal = Number(sim.coautoria || 0);
+                if (cVal > maxC) maxC = cVal;
 
                 if (graph.hasNode(n1) && graph.hasNode(n2) && !graph.hasEdge(edgeId)) {
                     graph.addEdge(n1, n2, {
@@ -106,7 +112,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                         size: 1,
                         color: COLORS.edgeDefault,
                         similaridade: Number(sim.similaridade || 0),
-                        coautoria: Number(sim.coautoria || 0),
+                        coautoria: cVal,
                     });
                 }
             });
@@ -114,10 +120,14 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
             lastGraphTypeRef.current = type;
             // Forçar re-layout após troca de arestas
             lastLayoutRef.current = null;
+            if (type === 'coautoria' && onMaxCoautoriaLoaded) {
+                onMaxCoautoriaLoaded(maxC > 0 ? maxC : 50);
+            }
+            setEdgesVersion(v => v + 1);
         } catch (error) {
             console.error("Erro ao carregar arestas:", error);
         }
-    }, [graph]);
+    }, [graph, onMaxCoautoriaLoaded]);
 
     // Efeito: carregar arestas quando dados estiverem prontos ou graphType mudar
     useEffect(() => {
@@ -197,7 +207,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
     const applyFilters = useCallback(() => {
         if (!filters || !dataLoaded) return;
 
-        const { separateBy, onlyActive, presence, voteSimilarity, vertexSize, graphLayout } = filters;
+        const { separateBy, onlyActive, onlyWithConnections, presence, voteSimilarity, vertexSize, graphLayout } = filters;
 
         // Atualizar nós (cor e visibilidade)
         graph.forEachNode((nodeId) => {
@@ -246,6 +256,25 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
 
             graph.setEdgeAttribute(edgeId, 'hidden', hidden);
         });
+
+        // Contar arestas válidas por nó (útil para filtro e tamanho)
+        const connectionCounts = {};
+        graph.forEachEdge((edgeId, attrs, source, target) => {
+            if (attrs.hidden) return;
+            connectionCounts[source] = (connectionCounts[source] || 0) + 1;
+            connectionCounts[target] = (connectionCounts[target] || 0) + 1;
+        });
+
+        // Ocultar nós isolados se o filtro estiver ativo
+        if (onlyWithConnections) {
+            graph.forEachNode((nodeId) => {
+                if (graph.getNodeAttribute(nodeId, 'hidden')) return;
+                const count = connectionCounts[nodeId] || 0;
+                if (count === 0) {
+                    graph.setNodeAttribute(nodeId, 'hidden', true);
+                }
+            });
+        }
 
         // Aplicar tamanho dos vértices baseado no critério selecionado
         const DEFAULT_SIZE = 8;
@@ -296,16 +325,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                 });
             }
         } else if (vertexSize === 'conexoes') {
-            // Tamanho proporcional ao número de arestas visíveis conectadas ao nó
-            const connectionCounts = {};
-
-            // Contar apenas arestas não-escondidas para cada nó visível
-            graph.forEachEdge((edgeId, attrs, source, target) => {
-                if (graph.getEdgeAttribute(edgeId, 'hidden')) return;
-
-                connectionCounts[source] = (connectionCounts[source] || 0) + 1;
-                connectionCounts[target] = (connectionCounts[target] || 0) + 1;
-            });
+            // Tamanho proporcional ao número de arestas visíveis conectadas ao nó (já calculado acima)
 
             // Encontrar min e max para normalizar
             let minConn = Infinity;
@@ -341,7 +361,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
         if (lastLayoutRef.current !== layoutToApply) {
             setTimeout(() => applyLayout(layoutToApply), 50);
         }
-    }, [graph, filters, dataLoaded, applyLayout, graphType]);
+    }, [graph, filters, dataLoaded, applyLayout, graphType, edgesVersion]);
 
     useEffect(() => {
         applyFilters();
