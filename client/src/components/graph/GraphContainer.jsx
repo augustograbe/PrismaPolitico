@@ -410,7 +410,24 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
             const dep = graph.getNodeAttribute(nodeId, 'deputyData');
             const color = graph.getNodeAttribute(nodeId, 'color');
             if (dep) {
-                onNodeClick({ ...dep, nodeColor: color, nodeId });
+                // Count visible edges connected to this node
+                let conexoes = 0;
+                graph.forEachEdge(nodeId, (edgeId) => {
+                    if (!graph.getEdgeAttribute(edgeId, 'hidden')) {
+                        conexoes++;
+                    }
+                });
+                // Find max connections among all visible nodes
+                let maxConexoes = 0;
+                graph.forEachNode((nId) => {
+                    if (graph.getNodeAttribute(nId, 'hidden')) return;
+                    let count = 0;
+                    graph.forEachEdge(nId, (eId) => {
+                        if (!graph.getEdgeAttribute(eId, 'hidden')) count++;
+                    });
+                    if (count > maxConexoes) maxConexoes = count;
+                });
+                onNodeClick({ ...dep, nodeColor: color, nodeId, conexoes, maxConexoes });
             }
         },
         [graph, onNodeClick],
