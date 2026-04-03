@@ -46,14 +46,38 @@ export const COLORS = {
 };
 
 // Cores por partido
+// Cores por partido (Baseadas na imagem do plenário)
 export const PARTY_COLORS = {
-    PT: '#e30613',
-    PL: '#1a3a6b',
-    MDB: '#f7a600',
-    PSOL: '#ffcc00',
-    PSDB: '#004c8c',
-    PP: '#2e86c1',
-    UNIÃO: '#0072ce',
+    PL: '#333170',
+    PT: '#b11116',
+    UNIÃO: '#2e8eb0',
+    'UNIÃO BRASIL': '#2e8eb0',
+    PP: '#29abb8',
+    MDB: '#4e9d40',
+    PSD: '#95b525',
+    REPUBLICANOS: '#3c568d',
+    PDT: '#2b76b2',
+    PSB: '#f05523',
+    PSDB: '#00509a',
+    PSOL: '#ffcd00',
+    PODEMOS: '#44774e',
+    PODE: '#44774e',
+    AVANTE: '#6b9ba1',
+    PSC: '#19ae48',
+    PCDOB: '#8c111e',
+    'PC DO B': '#8c111e',
+    PV: '#04441a',
+    CIDADANIA: '#d41e7f',
+    PATRIOTA: '#009ca6',
+    SOLIDARIEDADE: '#ef7d00',
+    SD: '#ef7d00',
+    NOVO: '#5d7d85',
+    PROS: '#b76d29',
+    REDE: '#f4cecf',
+    PTB: '#7f8d48',
+    'MISSÃO': '#000000',
+    'MISSAO': '#000000',
+    OUTROS: '#888888',
 };
 
 // Cores por estado (UF)
