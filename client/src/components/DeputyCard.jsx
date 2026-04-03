@@ -187,6 +187,7 @@ export default function DeputyCard({
         alignItems: 'center',
         justifyContent: 'center',
         transition: 'width 0.4s ease',
+        flexShrink: 0,
     });
 
     const progressTextStyle = {
@@ -272,18 +273,23 @@ export default function DeputyCard({
                     {presenca !== null && (
                         <div style={statRowStyle}>
                             <span style={statLabelStyle}>Presença:</span>
-                            <div style={progressTrackStyle}>
+                            <div style={{ ...progressTrackStyle, display: 'flex', alignItems: 'center' }}>
                                 <div style={progressFillStyle(presenca, COLORS.orange)}>
-                                    {presenca >= 15 && (
+                                    {presenca >= 20 && (
                                         <span style={progressTextStyle}>{presenca}%</span>
                                     )}
                                 </div>
+                                {presenca < 20 && (
+                                    <span style={{ 
+                                        fontSize: '10px', 
+                                        fontWeight: FONTS.weightSemibold, 
+                                        color: COLORS.textMedium,
+                                        marginLeft: '6px'
+                                    }}>
+                                        {presenca}%
+                                    </span>
+                                )}
                             </div>
-                            {presenca < 15 && (
-                                <span style={{ fontSize: FONTS.sizeXs, color: COLORS.textMedium }}>
-                                    {presenca}%
-                                </span>
-                            )}
                         </div>
                     )}
                 </div>
