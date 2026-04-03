@@ -93,6 +93,7 @@ export default function DeputyCard({
         width: '100%',
         height: '100%',
         objectFit: 'cover',
+        objectPosition: 'top',
     };
 
     const photoPlaceholderStyle = {
@@ -263,11 +264,7 @@ export default function DeputyCard({
                     <div style={statRowStyle}>
                         <span style={statLabelStyle}>{conexoes} conexões</span>
                         <div style={progressTrackStyle}>
-                            <div style={progressFillStyle(conexoesPercent, COLORS.orange)}>
-                                {conexoesPercent >= 20 && (
-                                    <span style={progressTextStyle}>▼</span>
-                                )}
-                            </div>
+                            <div style={progressFillStyle(conexoesPercent, COLORS.orange)} />
                         </div>
                     </div>
 
