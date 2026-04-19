@@ -1,0 +1,120 @@
+import { useState } from 'react';
+import Frame from './Frame';
+import { COLORS, SPACING, FONTS } from '../constants/theme';
+
+/**
+ * LegendPanel - Frame de legenda mostrando as categorias do grafo
+ * Props:
+ * - legendData: array de { key, label, color, count }
+ * - totalVisible: total de vértices visíveis
+ * - onHoverGroup: callback (groupKey | null) ao hover/leave
+ */
+export default function LegendPanel({ legendData = [], totalVisible = 0, onHoverGroup }) {
+    const legendIcon = (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.orange} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+    );
+
+    const listStyle = {
+        padding: `0 ${SPACING.md} ${SPACING.md}`,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1px',
+        maxHeight: '280px',
+        overflowY: 'auto',
+    };
+
+    const itemStyle = {
+        display: 'flex',
+        alignItems: 'center',
+        gap: SPACING.sm,
+        padding: `${SPACING.xs} ${SPACING.sm}`,
+        borderRadius: SPACING.radiusSm,
+        cursor: 'default',
+        transition: 'background-color 0.15s',
+        fontSize: FONTS.sizeSm,
+        color: COLORS.textDark,
+    };
+
+    const dotStyle = (color) => ({
+        width: '10px',
+        height: '10px',
+        borderRadius: '50%',
+        backgroundColor: color,
+        flexShrink: 0,
+    });
+
+    const nameStyle = {
+        flex: 1,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        fontWeight: FONTS.weightMedium,
+    };
+
+    const countStyle = {
+        fontSize: FONTS.sizeXs,
+        color: COLORS.textMedium,
+        whiteSpace: 'nowrap',
+    };
+
+    // Sort by count descending
+    const sorted = [...legendData].sort((a, b) => b.count - a.count);
+
+    return (
+        <Frame
+            width="250px"
+            height="auto"
+            position={{
+                top: 'auto',
+                right: SPACING.frameGap,
+            }}
+            title={
+                <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
+                    {legendIcon} Legenda ({totalVisible})
+                </span>
+            }
+            showMinimize={true}
+            style={{
+                position: 'fixed',
+                right: SPACING.frameGap,
+                bottom: `calc(${SPACING.frameGap} + 56px + ${SPACING.frameGap})`,
+                maxHeight: '360px',
+            }}
+        >
+            {sorted.length === 0 ? (
+                <div style={{ padding: `${SPACING.md} ${SPACING.lg}`, fontSize: FONTS.sizeSm, color: COLORS.textLight, textAlign: 'center', fontStyle: 'italic' }}>
+                    Carregando...
+                </div>
+            ) : (
+                <div style={listStyle}>
+                    {sorted.map((item) => {
+                        const pct = totalVisible > 0 ? ((item.count / totalVisible) * 100).toFixed(1) : '0.0';
+                        return (
+                            <div
+                                key={item.key}
+                                style={itemStyle}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#f5f5f5';
+                                    if (onHoverGroup) onHoverGroup(item.key);
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    if (onHoverGroup) onHoverGroup(null);
+                                }}
+                            >
+                                <span style={dotStyle(item.color)} />
+                                <span style={nameStyle}>{item.label}</span>
+                                <span style={countStyle}>{item.count} ({pct}%)</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </Frame>
+    );
+}

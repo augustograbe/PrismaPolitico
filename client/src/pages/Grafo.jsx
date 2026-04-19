@@ -4,11 +4,14 @@ import FiltersPanel from '../components/FiltersPanel';
 import InfoFrame from '../components/layout/InfoFrame';
 import DeputyCard from '../components/DeputyCard';
 import PinnedPanel from '../components/PinnedPanel';
+import LegendPanel from '../components/LegendPanel';
 import GraphContainer from '../components/graph/GraphContainer';
 import Frame from '../components/Frame';
-import { COLORS, SPACING, FONTS } from '../constants/theme';
+import { COLORS, SPACING, FONTS, PARTY_COLORS, STATE_COLORS, SEX_COLORS } from '../constants/theme';
 
 const PINNED_STORAGE_KEY = 'prisma_politico_pinned';
+
+const SEX_LABELS = { M: 'Masculino', F: 'Feminino', O: 'Outro' };
 
 function loadPinnedFromStorage() {
     try {
@@ -28,6 +31,32 @@ function savePinnedToStorage(pinned) {
 }
 
 /**
+ * Returns the color for a legend group key based on separateBy.
+ */
+function getGroupColor(key, separateBy) {
+    switch (separateBy) {
+        case 'partido':
+            return PARTY_COLORS[key] || COLORS.textMedium;
+        case 'estado':
+            return STATE_COLORS[key] || COLORS.textMedium;
+        case 'sexo':
+            return SEX_COLORS[key] || COLORS.textMedium;
+        default:
+            return PARTY_COLORS[key] || COLORS.textMedium;
+    }
+}
+
+/**
+ * Returns the label for a legend group key based on separateBy.
+ */
+function getGroupLabel(key, separateBy) {
+    if (separateBy === 'sexo') {
+        return SEX_LABELS[key] || key;
+    }
+    return key;
+}
+
+/**
  * Grafo - Página principal com visualização de grafos
  * Orquestra todos os componentes: grafo no fundo + frames flutuantes por cima
  */
@@ -37,6 +66,10 @@ export default function Grafo() {
     const [graphType, setGraphType] = useState('similaridade');
     const [maxCoautoriaLimit, setMaxCoautoriaLimit] = useState(50);
     const [pinnedDeputies, setPinnedDeputies] = useState(() => loadPinnedFromStorage());
+    const [legendData, setLegendData] = useState([]);
+    const [totalVisible, setTotalVisible] = useState(0);
+    const [hoveredLegendGroup, setHoveredLegendGroup] = useState(null);
+    const [hoveredBarGroup, setHoveredBarGroup] = useState(null);
     const [filters, setFilters] = useState({
         separateBy: 'partido',
         onlyActive: true,
@@ -91,6 +124,18 @@ export default function Grafo() {
             ...prev,
             coautoria: { min: 1, max: maxC }
         }));
+    }, []);
+
+    // Handle visible stats from GraphContainer for the legend
+    const handleVisibleStatsChanged = useCallback(({ separateBy, groupCounts, totalVisible: total }) => {
+        const data = Object.entries(groupCounts).map(([key, count]) => ({
+            key,
+            label: getGroupLabel(key, separateBy),
+            color: getGroupColor(key, separateBy),
+            count,
+        }));
+        setLegendData(data);
+        setTotalVisible(total);
     }, []);
 
     // Fixar/Desfixar deputado
@@ -181,8 +226,11 @@ export default function Grafo() {
                 onNodeClick={handleNodeClick}
                 onDeputiesLoaded={handleDeputiesLoaded}
                 onMaxCoautoriaLoaded={handleMaxCoautoriaLoaded}
+                onVisibleStatsChanged={handleVisibleStatsChanged}
                 pinnedIds={pinnedIds}
                 highlightPinned={filters.highlightPinned}
+                hoveredLegendGroup={hoveredLegendGroup}
+                hoveredBarGroup={hoveredBarGroup}
             />
 
             {/* Barra superior */}
@@ -205,6 +253,8 @@ export default function Grafo() {
                 isPinned={isSelectedPinned}
                 onClose={handleCloseCard}
                 onPin={handleTogglePin}
+                separateBy={filters.separateBy}
+                onBarSegmentHover={setHoveredBarGroup}
             />
 
             {/* Info frame - canto inferior esquerdo */}
@@ -239,6 +289,13 @@ export default function Grafo() {
                     </select>
                 </div>
             </Frame>
+
+            {/* Painel de legenda - acima dos fixados */}
+            <LegendPanel
+                legendData={legendData}
+                totalVisible={totalVisible}
+                onHoverGroup={setHoveredLegendGroup}
+            />
 
             {/* Painel de fixados - canto inferior direito */}
             <PinnedPanel

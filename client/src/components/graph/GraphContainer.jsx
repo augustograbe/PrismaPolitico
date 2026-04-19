@@ -37,7 +37,7 @@ function getNodeColor(deputy, separateBy) {
  * - selectedNode: id do nó selecionado (string | null)
  * - onNodeClick: callback quando um nó é clicado
  */
-export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded, onMaxCoautoriaLoaded, pinnedIds = [], highlightPinned = true }) {
+export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded, onMaxCoautoriaLoaded, onVisibleStatsChanged, pinnedIds = [], highlightPinned = true, hoveredLegendGroup = null, hoveredBarGroup = null }) {
     const graph = useMemo(() => new Graph(), []);
     const sigmaRef = useRef(null);
     const [dataLoaded, setDataLoaded] = useState(false);
@@ -361,7 +361,35 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
         if (lastLayoutRef.current !== layoutToApply) {
             setTimeout(() => applyLayout(layoutToApply), 50);
         }
-    }, [graph, filters, dataLoaded, applyLayout, graphType, edgesVersion]);
+
+        // Compute visible stats for legend
+        if (onVisibleStatsChanged) {
+            const groupCounts = {};
+            let totalVisible = 0;
+            graph.forEachNode((nodeId) => {
+                if (graph.getNodeAttribute(nodeId, 'hidden')) return;
+                totalVisible++;
+                const dep = graph.getNodeAttribute(nodeId, 'deputyData');
+                if (!dep) return;
+                let groupKey;
+                switch (separateBy) {
+                    case 'partido':
+                        groupKey = dep.sigla_partido || dep.partido || 'OUTROS';
+                        break;
+                    case 'estado':
+                        groupKey = dep.sigla_uf || dep.estado || 'Outros';
+                        break;
+                    case 'sexo':
+                        groupKey = dep.sexo || 'O';
+                        break;
+                    default:
+                        groupKey = dep.sigla_partido || dep.partido || 'OUTROS';
+                }
+                groupCounts[groupKey] = (groupCounts[groupKey] || 0) + 1;
+            });
+            onVisibleStatsChanged({ separateBy, groupCounts, totalVisible });
+        }
+    }, [graph, filters, dataLoaded, applyLayout, graphType, edgesVersion, onVisibleStatsChanged]);
 
     useEffect(() => {
         applyFilters();
@@ -397,6 +425,57 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
             zIndex: true,
             minCameraRatio: 0.2,
             maxCameraRatio: 5,
+            drawLabel: (context, data, settings) => {
+                if (!data.label) return;
+
+                // 1. Draw standard label
+                const size = settings.labelSize;
+                const font = settings.labelFont;
+                const weight = settings.labelWeight;
+                context.font = `${weight} ${size}px ${font}`;
+                context.fillStyle = settings.labelColor.color;
+                context.fillText(data.label, data.x + data.size + 3, data.y + size / 3);
+
+                // 2. Pinned decorations
+                if (data.isPinned) {
+                    const BORDER_SIZE = 3;
+                    // Orange border
+                    context.beginPath();
+                    context.arc(data.x, data.y, data.size + BORDER_SIZE / 2, 0, Math.PI * 2);
+                    context.strokeStyle = COLORS.orange;
+                    context.lineWidth = BORDER_SIZE;
+                    context.stroke();
+
+                    // Pin icon
+                    const s = data.size * 0.5;
+                    context.save();
+                    context.translate(data.x, data.y);
+                    
+                    // Pin body
+                    context.beginPath();
+                    context.arc(0, -s * 0.15, s * 0.45, 0, Math.PI * 2);
+                    context.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                    context.fill();
+
+                    // Pin needle
+                    context.beginPath();
+                    context.moveTo(0, s * 0.25);
+                    context.lineTo(0, s * 0.65);
+                    context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+                    context.lineWidth = s * 0.15;
+                    context.lineCap = 'round';
+                    context.stroke();
+
+                    // Pin head outline
+                    context.beginPath();
+                    context.arc(0, -s * 0.15, s * 0.45, 0, Math.PI * 2);
+                    context.strokeStyle = COLORS.orange;
+                    context.lineWidth = s * 0.12;
+                    context.stroke();
+                    
+                    context.restore();
+                }
+            }
         }),
         [],
     );
@@ -427,10 +506,36 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                     });
                     if (count > maxConexoes) maxConexoes = count;
                 });
-                onNodeClick({ ...dep, nodeColor: color, nodeId, conexoes, maxConexoes });
+
+                // Compute connection breakdown by group (partido/estado/sexo)
+                const separateBy = filters.separateBy || 'partido';
+                const connectionBreakdown = {};
+                graph.forEachEdge(nodeId, (edgeId, attrs, source, target) => {
+                    if (graph.getEdgeAttribute(edgeId, 'hidden')) return;
+                    const neighborId = source === nodeId ? target : source;
+                    const neighborDep = graph.getNodeAttribute(neighborId, 'deputyData');
+                    if (!neighborDep) return;
+                    let groupKey;
+                    switch (separateBy) {
+                        case 'partido':
+                            groupKey = neighborDep.sigla_partido || neighborDep.partido || 'OUTROS';
+                            break;
+                        case 'estado':
+                            groupKey = neighborDep.sigla_uf || neighborDep.estado || 'Outros';
+                            break;
+                        case 'sexo':
+                            groupKey = neighborDep.sexo || 'O';
+                            break;
+                        default:
+                            groupKey = neighborDep.sigla_partido || neighborDep.partido || 'OUTROS';
+                    }
+                    connectionBreakdown[groupKey] = (connectionBreakdown[groupKey] || 0) + 1;
+                });
+
+                onNodeClick({ ...dep, nodeColor: color, nodeId, conexoes, maxConexoes, connectionBreakdown });
             }
         },
-        [graph, onNodeClick],
+        [graph, onNodeClick, filters],
     );
 
     return (
@@ -443,7 +548,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                     style={{ width: '100%', height: '100%' }}
                 >
                     <GraphEventsController setSelectedNode={handleNodeClick} />
-                    <GraphSettingsController selectedNode={selectedNode} pinnedIds={pinnedIds} highlightPinned={highlightPinned} />
+                    <GraphSettingsController selectedNode={selectedNode} pinnedIds={pinnedIds} highlightPinned={highlightPinned} hoveredLegendGroup={hoveredLegendGroup} hoveredBarGroup={hoveredBarGroup} separateBy={filters.separateBy} />
                 </SigmaContainer>
             ) : (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>

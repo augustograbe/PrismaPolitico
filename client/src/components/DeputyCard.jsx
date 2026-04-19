@@ -1,15 +1,59 @@
+import { useState, useRef } from 'react';
 import Button from './Button';
-import { COLORS, SPACING, FONTS, SHADOWS } from '../constants/theme';
+import { COLORS, SPACING, FONTS, SHADOWS, PARTY_COLORS, STATE_COLORS, SEX_COLORS } from '../constants/theme';
 import { Pin, PinOff } from 'lucide-react';
+
+const SEX_LABELS = { M: 'Masculino', F: 'Feminino', O: 'Outro' };
+
+/**
+ * Returns the color for a group key based on separateBy.
+ */
+function getGroupColor(key, separateBy) {
+    switch (separateBy) {
+        case 'partido':
+            return PARTY_COLORS[key] || COLORS.textMedium;
+        case 'estado':
+            return STATE_COLORS[key] || COLORS.textMedium;
+        case 'sexo':
+            return SEX_COLORS[key] || COLORS.textMedium;
+        default:
+            return PARTY_COLORS[key] || COLORS.textMedium;
+    }
+}
+
+/**
+ * Returns the display label for a group key based on separateBy.
+ */
+function getGroupLabel(key, separateBy) {
+    if (separateBy === 'sexo') {
+        return SEX_LABELS[key] || key;
+    }
+    return key;
+}
+
+/**
+ * Determines if text is readable on a given background color.
+ * Returns 'white' or dark color based on luminance.
+ */
+function getContrastColor(hexColor) {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#2d2d2d' : '#ffffff';
+}
 
 /**
  * DeputyCard - Card de deputado com barra colorida, foto circular sobreposta, informações e botões
  * Props:
- * - deputy: objeto { nome, partido, estado, nodeColor, conexoes, presenca, maxConexoes, ... }
+ * - deputy: objeto { nome, partido, estado, nodeColor, conexoes, presenca, maxConexoes, connectionBreakdown, ... }
  * - visible: se o card deve ser exibido
  * - onClose: callback ao fechar
  * - onPin: callback ao fixar
  * - onProfile: callback ao clicar em perfil
+ * - separateBy: critério de separação ('partido', 'estado', 'sexo')
+ * - onBarSegmentHover: callback (groupKey | null) ao hover/leave em segmento da barra
  */
 export default function DeputyCard({
     deputy = null,
@@ -18,7 +62,13 @@ export default function DeputyCard({
     onClose,
     onPin,
     onProfile,
+    separateBy = 'partido',
+    onBarSegmentHover,
 }) {
+    const [hoveredSegment, setHoveredSegment] = useState(null);
+    const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+    const barRef = useRef(null);
+
     if (!visible || !deputy) return null;
 
     const headerColor = deputy.nodeColor || COLORS.deputyHeaderGreen;
@@ -26,6 +76,7 @@ export default function DeputyCard({
     const presenca = deputy.presenca !== undefined ? Number(deputy.presenca) : null;
     const conexoes = deputy.conexoes !== undefined ? deputy.conexoes : 0;
     const maxConexoes = deputy.maxConexoes || Math.max(conexoes, 1);
+    const connectionBreakdown = deputy.connectionBreakdown || {};
 
     const topOffset = `calc(52px + ${SPACING.frameGap} + ${SPACING.frameGap})`;
 
@@ -219,6 +270,72 @@ export default function DeputyCard({
 
     const conexoesPercent = maxConexoes > 0 ? (conexoes / maxConexoes) * 100 : 0;
 
+    // Build segmented bar data from connectionBreakdown
+    const breakdownEntries = Object.entries(connectionBreakdown)
+        .map(([key, count]) => ({
+            key,
+            label: getGroupLabel(key, separateBy),
+            color: getGroupColor(key, separateBy),
+            count,
+            percent: conexoes > 0 ? (count / conexoes) * 100 : 0,
+        }))
+        .sort((a, b) => b.count - a.count);
+
+    const hasBreakdown = breakdownEntries.length > 0;
+
+    // Handle segment hover
+    const handleSegmentEnter = (entry, e) => {
+        setHoveredSegment(entry.key);
+        if (barRef.current) {
+            const barRect = barRef.current.getBoundingClientRect();
+            const x = e.clientX - barRect.left;
+            const y = -8; // above the bar
+            setTooltipPos({ x, y });
+        }
+        if (onBarSegmentHover) onBarSegmentHover(entry.key);
+    };
+
+    const handleSegmentMove = (entry, e) => {
+        if (barRef.current) {
+            const barRect = barRef.current.getBoundingClientRect();
+            const x = e.clientX - barRect.left;
+            setTooltipPos(prev => ({ ...prev, x }));
+        }
+    };
+
+    const handleSegmentLeave = () => {
+        setHoveredSegment(null);
+        if (onBarSegmentHover) onBarSegmentHover(null);
+    };
+
+    // Get tooltip data for the hovered segment
+    const hoveredEntry = breakdownEntries.find(e => e.key === hoveredSegment);
+
+    // Tooltip style
+    const tooltipStyle = {
+        position: 'absolute',
+        bottom: '100%',
+        left: `${tooltipPos.x}px`,
+        transform: 'translateX(-50%)',
+        marginBottom: '6px',
+        backgroundColor: 'rgba(40, 40, 40, 0.95)',
+        color: '#fff',
+        padding: '6px 10px',
+        borderRadius: '6px',
+        fontSize: '11px',
+        lineHeight: 1.4,
+        whiteSpace: 'nowrap',
+        pointerEvents: 'none',
+        zIndex: 20,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+    };
+
+    // Minimum width in pixels for showing percentage text inside a segment
+    const MIN_PX_FOR_TEXT = 30;
+    // The bar track total width (approx — we use percentage-based, but estimate for text check)
+    // The track is flex:1 in a ~280px card minus label, so roughly 160px
+    const TRACK_ESTIMATED_WIDTH = 150;
+
     return (
         <div style={outerStyle}>
             {/* Photo — sits ABOVE the card, overlapping the header */}
@@ -261,11 +378,100 @@ export default function DeputyCard({
 
                 {/* Stats */}
                 <div style={statsStyle}>
-                    {/* Conexões — label + bar inline */}
+                    {/* Conexões — label + segmented bar inline */}
                     <div style={statRowStyle}>
                         <span style={statLabelStyle}>{conexoes} conexões</span>
-                        <div style={progressTrackStyle}>
-                            <div style={progressFillStyle(conexoesPercent, COLORS.orange)} />
+                        <div style={{ flex: 1, position: 'relative' }}>
+                            <div
+                                ref={barRef}
+                                style={{
+                                    ...progressTrackStyle,
+                                    position: 'relative',
+                                    display: 'flex',
+                                    overflow: 'hidden',
+                                }}
+                            >
+                                {hasBreakdown ? (
+                                    <>
+                                        {/* Segmented fill — all segments sit within the conexoesPercent width */}
+                                        <div style={{
+                                            display: 'flex',
+                                            width: `${Math.min(100, Math.max(0, conexoesPercent))}%`,
+                                            height: '100%',
+                                            borderRadius: '7px',
+                                            overflow: 'hidden',
+                                            transition: 'width 0.4s ease',
+                                        }}>
+                                            {breakdownEntries.map((entry) => {
+                                                // Each segment width is relative to total conexoes
+                                                const segmentWidthPercent = conexoes > 0 ? (entry.count / conexoes) * 100 : 0;
+                                                const segmentPxEstimate = (segmentWidthPercent / 100) * (conexoesPercent / 100) * TRACK_ESTIMATED_WIDTH;
+                                                const showText = segmentPxEstimate >= MIN_PX_FOR_TEXT;
+                                                const bgColor = entry.color;
+                                                const textColor = getContrastColor(bgColor);
+                                                const isHovered = hoveredSegment === entry.key;
+
+                                                return (
+                                                    <div
+                                                        key={entry.key}
+                                                        onMouseEnter={(e) => handleSegmentEnter(entry, e)}
+                                                        onMouseMove={(e) => handleSegmentMove(entry, e)}
+                                                        onMouseLeave={handleSegmentLeave}
+                                                        style={{
+                                                            width: `${segmentWidthPercent}%`,
+                                                            height: '100%',
+                                                            backgroundColor: bgColor,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            cursor: 'pointer',
+                                                            transition: 'opacity 0.15s, filter 0.15s',
+                                                            opacity: hoveredSegment && !isHovered ? 0.5 : 1,
+                                                            filter: isHovered ? 'brightness(1.15)' : 'none',
+                                                            position: 'relative',
+                                                            overflow: 'hidden',
+                                                            flexShrink: 0,
+                                                        }}
+                                                    >
+                                                        {showText && (
+                                                            <span style={{
+                                                                fontSize: '9px',
+                                                                fontWeight: FONTS.weightSemibold,
+                                                                color: textColor,
+                                                                lineHeight: 1,
+                                                                whiteSpace: 'nowrap',
+                                                                textShadow: '0 0 2px rgba(0,0,0,0.2)',
+                                                            }}>
+                                                                {entry.percent.toFixed(0)}%
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                ) : (
+                                    /* Fallback: solid orange bar when no breakdown data */
+                                    <div style={progressFillStyle(conexoesPercent, COLORS.orange)} />
+                                )}
+                            </div>
+
+                            {/* Tooltip — rendered outside the overflow:hidden bar */}
+                            {hoveredEntry && (
+                                <div style={tooltipStyle}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                                        <span style={{
+                                            width: '8px',
+                                            height: '8px',
+                                            borderRadius: '50%',
+                                            backgroundColor: hoveredEntry.color,
+                                            flexShrink: 0,
+                                        }} />
+                                        <strong>{hoveredEntry.label}</strong>
+                                    </div>
+                                    <div>{hoveredEntry.count} conexões ({hoveredEntry.percent.toFixed(1)}%)</div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
