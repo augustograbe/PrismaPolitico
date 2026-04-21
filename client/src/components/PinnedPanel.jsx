@@ -10,12 +10,8 @@ import { Pin } from 'lucide-react';
  * - onRemove: callback (id) ao remover um deputado da lista
  * - onSelect: callback (dep) ao clicar no nome de um deputado
  */
-export default function PinnedPanel({ pinnedDeputies = [], onRemove, onSelect }) {
-    const topOffset = `calc(52px + ${SPACING.frameGap} + ${SPACING.frameGap} + 96px + ${SPACING.frameGap})`;
+export default function PinnedPanel({ pinnedDeputies = [], onRemove, onSelect, isMinimized, onToggleMinimize }) {
 
-    // We need to calculate the approximate height of the FiltersPanel to position below it.
-    // The FiltersPanel uses the same topOffset but its height is dynamic.
-    // A simpler approach: position via CSS, stacking below filters using a known offset.
 
     const pinIcon = (
         <Pin size={16} color={COLORS.orange} />
@@ -72,22 +68,16 @@ export default function PinnedPanel({ pinnedDeputies = [], onRemove, onSelect })
         <Frame
             width="250px"
             height="auto"
-            position={{
-                top: 'auto',
-                right: SPACING.frameGap,
-            }}
+            position={{ position: 'relative' }}
+            style={{ flex: isMinimized ? '0 0 auto' : '0 1 auto', minHeight: 0 }}
             title={
                 <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
                     {pinIcon} Fixados ({pinnedDeputies.length})
                 </span>
             }
             showMinimize={true}
-            style={{
-                position: 'fixed',
-                right: SPACING.frameGap,
-                bottom: SPACING.frameGap,
-                maxHeight: '300px',
-            }}
+            isMinimized={isMinimized}
+            onToggleMinimize={onToggleMinimize}
         >
             {pinnedDeputies.length === 0 ? (
                 <div style={emptyStyle}>

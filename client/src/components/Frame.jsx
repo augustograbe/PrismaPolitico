@@ -27,13 +27,17 @@ export default function Frame({
     headerColor = 'transparent',
     showClose = false,
     showMinimize = false,
+    isMinimized: controlledIsMinimized,
+    onToggleMinimize,
     children,
     onClose,
     style = {},
     className = '',
 }) {
-    const [isMinimized, setIsMinimized] = useState(false);
+    const [internalIsMinimized, setInternalIsMinimized] = useState(false);
     const [isVisible, setIsVisible] = useState(true);
+
+    const isMinimized = controlledIsMinimized !== undefined ? controlledIsMinimized : internalIsMinimized;
 
     if (!isVisible) return null;
 
@@ -43,7 +47,11 @@ export default function Frame({
     };
 
     const handleMinimize = () => {
-        setIsMinimized(!isMinimized);
+        if (onToggleMinimize) {
+            onToggleMinimize(!isMinimized);
+        } else {
+            setInternalIsMinimized(!isMinimized);
+        }
     };
 
     const hasHeader = title || showClose || showMinimize || headerColor !== 'transparent';
@@ -58,6 +66,7 @@ export default function Frame({
         display: 'flex',
         flexDirection: 'column',
         zIndex: 10,
+        pointerEvents: 'auto',
         ...position,
         ...style,
     };

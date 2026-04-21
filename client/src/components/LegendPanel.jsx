@@ -9,7 +9,7 @@ import { COLORS, SPACING, FONTS } from '../constants/theme';
  * - totalVisible: total de vértices visíveis
  * - onHoverGroup: callback (groupKey | null) ao hover/leave
  */
-export default function LegendPanel({ legendData = [], totalVisible = 0, onHoverGroup }) {
+export default function LegendPanel({ legendData = [], totalVisible = 0, onHoverGroup, isMinimized, onToggleMinimize }) {
     const legendIcon = (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.orange} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -24,7 +24,6 @@ export default function LegendPanel({ legendData = [], totalVisible = 0, onHover
         display: 'flex',
         flexDirection: 'column',
         gap: '1px',
-        maxHeight: '280px',
         overflowY: 'auto',
     };
 
@@ -69,22 +68,16 @@ export default function LegendPanel({ legendData = [], totalVisible = 0, onHover
         <Frame
             width="250px"
             height="auto"
-            position={{
-                top: 'auto',
-                right: SPACING.frameGap,
-            }}
+            position={{ position: 'relative' }}
+            style={{ flex: isMinimized ? '0 0 auto' : '0 1 auto', minHeight: 0 }}
             title={
                 <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
                     {legendIcon} Legenda ({totalVisible})
                 </span>
             }
             showMinimize={true}
-            style={{
-                position: 'fixed',
-                right: SPACING.frameGap,
-                bottom: `calc(${SPACING.frameGap} + 56px + ${SPACING.frameGap})`,
-                maxHeight: '360px',
-            }}
+            isMinimized={isMinimized}
+            onToggleMinimize={onToggleMinimize}
         >
             {sorted.length === 0 ? (
                 <div style={{ padding: `${SPACING.md} ${SPACING.lg}`, fontSize: FONTS.sizeSm, color: COLORS.textLight, textAlign: 'center', fontStyle: 'italic' }}>

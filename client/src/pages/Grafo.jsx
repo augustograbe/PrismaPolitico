@@ -70,6 +70,7 @@ export default function Grafo() {
     const [totalVisible, setTotalVisible] = useState(0);
     const [hoveredLegendGroup, setHoveredLegendGroup] = useState(null);
     const [hoveredBarGroup, setHoveredBarGroup] = useState(null);
+    const [openPanel, setOpenPanel] = useState('filtros'); // estado para o painel aberto
     const [filters, setFilters] = useState({
         separateBy: 'partido',
         onlyActive: true,
@@ -108,6 +109,10 @@ export default function Grafo() {
         setFilters(newFilters);
         // Deselect ao aplicar filtros
         setSelectedDeputy(null);
+    }, []);
+
+    const handleTogglePanel = useCallback((panelId) => {
+        setOpenPanel(prev => prev === panelId ? null : panelId);
     }, []);
 
     const handleCloseCard = useCallback(() => {
@@ -239,13 +244,6 @@ export default function Grafo() {
                 onSelectDeputy={handleSearchSelectDeputy}
             />
 
-            {/* Painel de filtros - canto superior direito */}
-            <FiltersPanel 
-                onApply={handleApplyFilters} 
-                graphType={graphType} 
-                maxCoautoriaLimit={maxCoautoriaLimit}
-            />
-
             {/* Card de deputado - canto superior esquerdo (aparece ao clicar num vértice) */}
             <DeputyCard
                 deputy={selectedDeputy}
@@ -260,49 +258,74 @@ export default function Grafo() {
             {/* Info frame - canto inferior esquerdo */}
             <InfoFrame />
 
-            {/* Seletor de grafo - acima dos filtros */}
-            <Frame
-                width="250px"
-                height="auto"
-                position={{
-                    top: `calc(52px + ${SPACING.frameGap} + ${SPACING.frameGap})`,
-                    right: SPACING.frameGap,
-                }}
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
-                        {graphIcon} Selecionar grafo
-                    </span>
-                }
-            >
-                <div style={{ padding: `0 ${SPACING.lg} ${SPACING.lg}` }}>
-                    <select
-                        id="graph-type-selector"
-                        value={graphType}
-                        onChange={(e) => setGraphType(e.target.value)}
-                        style={selectLargeStyle}
-                    >
-                        {graphTypeOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            </Frame>
+            {/* Agrupamento de painéis à direita */}
+            <div style={{
+                position: 'absolute',
+                top: `calc(52px + ${SPACING.frameGap} + ${SPACING.frameGap})`,
+                right: SPACING.frameGap,
+                bottom: SPACING.frameGap,
+                width: '250px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: SPACING.frameGap,
+                pointerEvents: 'none',
+                zIndex: 10,
+            }}>
+                {/* Seletor de grafo - acima dos filtros */}
+                <Frame
+                    width="250px"
+                    height="auto"
+                    position={{ position: 'relative' }}
+                    style={{ flex: '0 0 auto' }}
+                    title={
+                        <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
+                            {graphIcon} Selecionar grafo
+                        </span>
+                    }
+                >
+                    <div style={{ padding: `0 ${SPACING.lg} ${SPACING.lg}` }}>
+                        <select
+                            id="graph-type-selector"
+                            value={graphType}
+                            onChange={(e) => setGraphType(e.target.value)}
+                            style={selectLargeStyle}
+                        >
+                            {graphTypeOptions.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </Frame>
 
-            {/* Painel de legenda - acima dos fixados */}
-            <LegendPanel
-                legendData={legendData}
-                totalVisible={totalVisible}
-                onHoverGroup={setHoveredLegendGroup}
-            />
+                {/* Painel de filtros */}
+                <FiltersPanel 
+                    onApply={handleApplyFilters} 
+                    graphType={graphType} 
+                    maxCoautoriaLimit={maxCoautoriaLimit}
+                    isMinimized={openPanel !== 'filtros'}
+                    onToggleMinimize={() => handleTogglePanel('filtros')}
+                />
 
-            {/* Painel de fixados - canto inferior direito */}
-            <PinnedPanel
-                pinnedDeputies={pinnedDeputies}
-                onRemove={handleRemovePinned}
-                onSelect={handleSelectPinned}
-            />
+                {/* Painel de legenda */}
+                <LegendPanel
+                    legendData={legendData}
+                    totalVisible={totalVisible}
+                    onHoverGroup={setHoveredLegendGroup}
+                    isMinimized={openPanel !== 'legenda'}
+                    onToggleMinimize={() => handleTogglePanel('legenda')}
+                />
+
+                {/* Painel de fixados */}
+                <PinnedPanel
+                    pinnedDeputies={pinnedDeputies}
+                    onRemove={handleRemovePinned}
+                    onSelect={handleSelectPinned}
+                    isMinimized={openPanel !== 'fixados'}
+                    onToggleMinimize={() => handleTogglePanel('fixados')}
+                />
+            </div>
         </div>
     );
 }

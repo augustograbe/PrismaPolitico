@@ -6,6 +6,17 @@ const NODE_FADE_COLOR = COLORS.nodeFade;
 const EDGE_FADE_COLOR = COLORS.edgeFade;
 
 /**
+ * Converte cor hex para rgba com opacidade.
+ */
+function withOpacity(hex, alpha) {
+    if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return hex;
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
  * Gets the group key for a node based on the separateBy criterion.
  */
 function getNodeGroupKey(dep, separateBy) {
@@ -77,43 +88,50 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
                 sigma.setSetting('nodeReducer', (node, data) => {
                     const isPinned = shouldHighlightPinned && pinnedSet.has(node);
 
-                    if (node === selectedNode) {
-                        return {
-                            ...data,
-                            zIndex: 2,
-                            highlighted: true,
-                            isPinned,
-                        };
-                    }
-                    if (neighbors.has(node)) {
-                        const isMatchGroup = neighborGroups[node] === hoveredBarGroup;
-                        if (isMatchGroup) {
+                        if (node === selectedNode) {
                             return {
                                 ...data,
-                                zIndex: 1,
+                                color: withOpacity(data.color, 1.0),
+                                zIndex: 2,
+                                highlighted: true,
                                 isPinned,
-                                forceLabel: isPinned || data.forceLabel,
+                                alpha: 1.0,
                             };
                         }
-                        // Neighbor but not matching group — fade
-                        return {
-                            ...data,
-                            zIndex: 0,
-                            label: isPinned ? data.label : '',
-                            color: NODE_FADE_COLOR,
-                            highlighted: false,
-                            isPinned,
-                            forceLabel: isPinned,
-                        };
-                    }
+                        if (neighbors.has(node)) {
+                            const isMatchGroup = neighborGroups[node] === hoveredBarGroup;
+                            if (isMatchGroup) {
+                                return {
+                                    ...data,
+                                    color: withOpacity(data.color, 0.9),
+                                    zIndex: 1,
+                                    isPinned,
+                                    forceLabel: isPinned || data.forceLabel,
+                                    alpha: 0.9,
+                                };
+                            }
+                            // Neighbor but not matching group — fade
+                            return {
+                                ...data,
+                                zIndex: 0,
+                                label: isPinned ? data.label : '',
+                                color: withOpacity(NODE_FADE_COLOR, 0.9),
+                                highlighted: false,
+                                isPinned,
+                                forceLabel: isPinned,
+                                alpha: 0.9,
+                            };
+                        }
 
                     // Not selected, not neighbor
                     if (isPinned) {
                         return {
                             ...data,
+                            color: withOpacity(data.color, 0.9),
                             zIndex: 1,
                             forceLabel: true,
                             isPinned: true,
+                            alpha: 0.9,
                         };
                     }
 
@@ -121,9 +139,10 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
                         ...data,
                         zIndex: 0,
                         label: '',
-                        color: NODE_FADE_COLOR,
+                        color: withOpacity(NODE_FADE_COLOR, 0.9),
                         highlighted: false,
                         isPinned: false,
+                        alpha: 0.9,
                     };
                 });
 
@@ -148,30 +167,36 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
                 sigma.setSetting('nodeReducer', (node, data) => {
                     const isPinned = shouldHighlightPinned && pinnedSet.has(node);
 
-                    if (node === selectedNode) {
-                        return {
-                            ...data,
-                            zIndex: 2,
-                            highlighted: true,
-                            isPinned,
-                        };
-                    }
-                    if (neighbors.has(node)) {
-                        return {
-                            ...data,
-                            zIndex: 1,
-                            isPinned,
-                            forceLabel: isPinned || data.forceLabel,
-                        };
-                    }
+                        if (node === selectedNode) {
+                            return {
+                                ...data,
+                                color: withOpacity(data.color, 1.0),
+                                zIndex: 2,
+                                highlighted: true,
+                                isPinned,
+                                alpha: 1.0,
+                            };
+                        }
+                        if (neighbors.has(node)) {
+                            return {
+                                ...data,
+                                color: withOpacity(data.color, 0.9),
+                                zIndex: 1,
+                                isPinned,
+                                forceLabel: isPinned || data.forceLabel,
+                                alpha: 0.9,
+                            };
+                        }
 
                     // Not selected, not neighbor
                     if (isPinned) {
                         return {
                             ...data,
+                            color: withOpacity(data.color, 0.9),
                             zIndex: 1,
                             forceLabel: true,
                             isPinned: true,
+                            alpha: 0.9,
                         };
                     }
 
@@ -179,9 +204,10 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
                         ...data,
                         zIndex: 0,
                         label: '',
-                        color: NODE_FADE_COLOR,
+                        color: withOpacity(NODE_FADE_COLOR, 0.9),
                         highlighted: false,
                         isPinned: false,
+                        alpha: 0.9,
                     };
                 });
 
@@ -200,22 +226,25 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
                 const groupKey = getNodeGroupKey(dep, separateBy);
                 const isMatch = groupKey === hoveredLegendGroup;
 
-                if (isMatch) {
+                    if (isMatch) {
+                        return {
+                            ...data,
+                            color: withOpacity(data.color, 0.9),
+                            isPinned,
+                            forceLabel: isPinned,
+                            zIndex: isPinned ? 2 : 1,
+                            alpha: 0.9,
+                        };
+                    }
                     return {
                         ...data,
-                        isPinned,
-                        forceLabel: isPinned,
-                        zIndex: isPinned ? 2 : 1,
+                        color: withOpacity(NODE_FADE_COLOR, 0.9),
+                        label: '',
+                        isPinned: false,
+                        zIndex: 0,
+                        highlighted: false,
+                        alpha: 0.9,
                     };
-                }
-                return {
-                    ...data,
-                    color: NODE_FADE_COLOR,
-                    label: '',
-                    isPinned: false,
-                    zIndex: 0,
-                    highlighted: false,
-                };
             });
             sigma.setSetting('edgeReducer', (edge, data) => {
                 return { ...data, color: EDGE_FADE_COLOR, hidden: true };
@@ -226,9 +255,11 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
                 const isPinned = shouldHighlightPinned && pinnedSet.has(node);
                 return {
                     ...data,
+                    color: withOpacity(data.color, 0.9),
                     isPinned,
                     forceLabel: isPinned || data.forceLabel,
                     zIndex: isPinned ? 2 : data.zIndex,
+                    alpha: 0.9,
                 };
             });
             sigma.setSetting('edgeReducer', null);

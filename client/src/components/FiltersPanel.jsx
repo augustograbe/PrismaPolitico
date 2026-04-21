@@ -12,7 +12,7 @@ import { COLORS, SPACING } from '../constants/theme';
  * Props:
  * - onApply: callback (filters) ao clicar em Aplicar
  */
-export default function FiltersPanel({ onApply, graphType = 'similaridade', maxCoautoriaLimit = 50 }) {
+export default function FiltersPanel({ onApply, graphType = 'similaridade', maxCoautoriaLimit = 50, isMinimized, onToggleMinimize }) {
     const [separateBy, setSeparateBy] = useState('partido');
     const [onlyActive, setOnlyActive] = useState(true);
     const [highlightPinned, setHighlightPinned] = useState(true);
@@ -65,8 +65,6 @@ export default function FiltersPanel({ onApply, graphType = 'similaridade', maxC
         </svg>
     );
 
-    const topOffset = `calc(52px + ${SPACING.frameGap} + ${SPACING.frameGap} + 96px + ${SPACING.frameGap})`;
-
     const contentStyle = {
         padding: SPACING.lg,
         display: 'flex',
@@ -94,16 +92,16 @@ export default function FiltersPanel({ onApply, graphType = 'similaridade', maxC
         <Frame
             width="250px"
             height="auto"
-            position={{
-                top: topOffset,
-                right: SPACING.frameGap,
-            }}
+            position={{ position: 'relative' }}
+            style={{ flex: isMinimized ? '0 0 auto' : '0 1 auto', minHeight: 0 }}
             title={
                 <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
                     {filterIcon} Filtros
                 </span>
             }
             showMinimize={true}
+            isMinimized={isMinimized}
+            onToggleMinimize={onToggleMinimize}
         >
             <div style={contentStyle}>
                 <Dropdown
