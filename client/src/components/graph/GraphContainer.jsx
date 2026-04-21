@@ -6,7 +6,7 @@ import { circular, random } from 'graphology-layout';
 import noverlap from 'graphology-layout-noverlap';
 import '@react-sigma/core/lib/style.css';
 
-import { PARTY_COLORS, STATE_COLORS, SEX_COLORS, COLORS } from '../../constants/theme';
+import { PARTY_COLORS, STATE_COLORS, SEX_COLORS, COLORS, SPACING, FONTS } from '../../constants/theme';
 import GraphEventsController from './GraphEventsController';
 import GraphSettingsController from './GraphSettingsController';
 
@@ -37,13 +37,16 @@ function getNodeColor(deputy, separateBy) {
  * - selectedNode: id do nó selecionado (string | null)
  * - onNodeClick: callback quando um nó é clicado
  */
-export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded, onMaxCoautoriaLoaded, onVisibleStatsChanged, pinnedIds = [], highlightPinned = true, hoveredLegendGroup = null, hoveredBarGroup = null }) {
+export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded, onMaxCoautoriaLoaded, onVisibleStatsChanged, pinnedIds = [], highlightPinned = true, hoveredLegendGroup = null, hoveredBarGroup = null, recalcKey = 0, onLayoutReady }) {
     const graph = useMemo(() => new Graph(), []);
     const sigmaRef = useRef(null);
     const [dataLoaded, setDataLoaded] = useState(false);
     const [edgesVersion, setEdgesVersion] = useState(0);
     const lastLayoutRef = useRef(null);
     const lastGraphTypeRef = useRef(null);
+    const [isComputing, setIsComputing] = useState(true);
+    const [progress, setProgress] = useState(0);
+    const computeIdRef = useRef(0);
 
     // Inicializar o grafo uma vez buscando deputados da API
     useEffect(() => {
@@ -84,6 +87,10 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
     // Carregar arestas quando o tipo de grafo muda
     const loadEdges = useCallback(async (type) => {
         if (graph.order === 0) return;
+
+        // Mostrar loading imediatamente
+        setIsComputing(true);
+        setProgress(0);
 
         // Remover todas as arestas atuais
         graph.clearEdges();
@@ -137,71 +144,74 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
         }
     }, [dataLoaded, graphType, loadEdges]);
 
-    // Função para aplicar layout ao grafo
-    const applyLayout = useCallback((layoutType) => {
+    // Função para aplicar layout ao grafo com progresso
+    const applyLayout = useCallback((layoutType, forceRecalc = false) => {
         if (graph.order === 0) return;
 
-        try {
-            switch (layoutType) {
-                case 'forceatlas2_spread': {
-                    // Versão espalhada: gravidade muito baixa, repulsion alta (linLogMode) e anti-sobreposição
-                    random.assign(graph);
-                    const settingsSpread = forceAtlas2.inferSettings(graph);
-                    forceAtlas2.assign(graph, {
-                        iterations: 200,
-                        settings: {
-                            ...settingsSpread,
-                            gravity: 0.5,
-                            scalingRatio: 80,
-                            strongGravityMode: false,
-                            barnesHutOptimize: true,
-                            //linLogMode: true,           // clusters mais separados
-                            //adjustSizes: true,          // tenta não sobrepor muito baseado no tamanho
-                            edgeWeightInfluence: 0.1,   // reduz atração excessiva de nós com muitas arestas
-                        },
-                    });
-                    // Remove sobreposições com margem maior para espalhar
-                    noverlap.assign(graph, {
-                        maxIterations: 300,
-                        settings: {
-                            margin: 180,
-                            ratio: 80,
-                        },
-                    });
-                    break;
-                }
-                case 'forceatlas2_clusters': 
-                default: {
-                    // Versão com clusters mais definidos - gravidade forte
-                    random.assign(graph);
-                    const settingsClusters = forceAtlas2.inferSettings(graph);
-                    forceAtlas2.assign(graph, {
-                        iterations: 200,
-                        settings: {
-                            ...settingsClusters,
-                            gravity: 3,
-                            scalingRatio: 10,
-                            //strongGravityMode: true,
-                            //barnesHutOptimize: true,
-                        },
-                    });
-                    // Pequeno noverlap para os clusters não ficarem 100% ocultos
-                    noverlap.assign(graph, {
-                        maxIterations: 50,
-                        settings: {
-                            margin: 1,
-                            ratio: 1.2
-                        }
-                    });
-                    break;
-                }
-            }
-        } catch (e) {
-            console.error('Erro ao aplicar layout:', e);
-        }
+        const myId = ++computeIdRef.current;
+        setIsComputing(true);
+        setProgress(0);
 
-        lastLayoutRef.current = layoutType;
-    }, [graph]);
+        // Run layout in chunked steps via setTimeout so UI can update progress
+        const runAsync = () => {
+            return new Promise((resolve) => {
+                // Step 1: random assign (5%)
+                setTimeout(() => {
+                    if (computeIdRef.current !== myId) { resolve(); return; }
+                    random.assign(graph);
+                    setProgress(5);
+
+                    // Step 2: ForceAtlas2 in chunks
+                    const TOTAL_ITERATIONS = 200;
+                    const CHUNK = 40;
+                    const isSpread = layoutType === 'forceatlas2_spread';
+                    const inferredSettings = forceAtlas2.inferSettings(graph);
+                    const fa2Settings = isSpread
+                        ? { ...inferredSettings, gravity: 0.5, scalingRatio: 80, strongGravityMode: false, barnesHutOptimize: true, edgeWeightInfluence: 0.1 }
+                        : { ...inferredSettings, gravity: 3, scalingRatio: 10 };
+
+                    let done = 0;
+                    const runChunk = () => {
+                        if (computeIdRef.current !== myId) { resolve(); return; }
+                        const iter = Math.min(CHUNK, TOTAL_ITERATIONS - done);
+                        try {
+                            forceAtlas2.assign(graph, { iterations: iter, settings: fa2Settings });
+                        } catch (e) { console.error('FA2 error:', e); }
+                        done += iter;
+                        // FA2 progress maps to 5%-80%
+                        setProgress(5 + Math.round((done / TOTAL_ITERATIONS) * 75));
+
+                        if (done < TOTAL_ITERATIONS) {
+                            setTimeout(runChunk, 0);
+                        } else {
+                            // Step 3: noverlap (80%-100%)
+                            setTimeout(() => {
+                                if (computeIdRef.current !== myId) { resolve(); return; }
+                                try {
+                                    if (isSpread) {
+                                        noverlap.assign(graph, { maxIterations: 300, settings: { margin: 180, ratio: 80 } });
+                                    } else {
+                                        noverlap.assign(graph, { maxIterations: 50, settings: { margin: 1, ratio: 1.2 } });
+                                    }
+                                } catch (e) { console.error('Noverlap error:', e); }
+                                setProgress(100);
+                                lastLayoutRef.current = layoutType;
+                                setTimeout(() => {
+                                    if (computeIdRef.current !== myId) { resolve(); return; }
+                                    setIsComputing(false);
+                                    if (onLayoutReady) onLayoutReady();
+                                    resolve();
+                                }, 60);
+                            }, 0);
+                        }
+                    };
+                    setTimeout(runChunk, 0);
+                }, 0);
+            });
+        };
+
+        runAsync();
+    }, [graph, onLayoutReady]);
 
     // Aplicar filtros quando mudam
     const applyFilters = useCallback(() => {
@@ -360,6 +370,14 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
         const layoutToApply = graphLayout || 'forceatlas2';
         if (lastLayoutRef.current !== layoutToApply) {
             setTimeout(() => applyLayout(layoutToApply), 50);
+        } else {
+            // Filters changed but layout didn't — still show computing briefly
+            setIsComputing(true);
+            setProgress(50);
+            setTimeout(() => {
+                setProgress(100);
+                setTimeout(() => setIsComputing(false), 80);
+            }, 80);
         }
 
         // Compute visible stats for legend
@@ -398,9 +416,18 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
     // Aplicar layout inicial quando dados carregam
     useEffect(() => {
         if (dataLoaded && !lastLayoutRef.current) {
-            setTimeout(() => applyLayout('forceatlas2'), 50);
+            setTimeout(() => applyLayout('forceatlas2_clusters'), 50);
         }
     }, [dataLoaded, applyLayout]);
+
+    // Recalcular layout quando recalcKey muda (botão de recalcular)
+    useEffect(() => {
+        if (recalcKey > 0 && dataLoaded) {
+            const layoutToApply = filters.graphLayout || 'forceatlas2_clusters';
+            lastLayoutRef.current = null; // force recalc
+            setTimeout(() => applyLayout(layoutToApply, true), 50);
+        }
+    }, [recalcKey]); // intentionally minimal deps
 
     const containerStyle = {
         position: 'fixed',
@@ -538,21 +565,63 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
         [graph, onNodeClick, filters],
     );
 
+    const loadingOverlayStyle = {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: COLORS.backgroundLight,
+        zIndex: 5,
+        gap: SPACING.lg,
+    };
+
+    const progressBarOuter = {
+        width: '260px',
+        height: '6px',
+        borderRadius: '3px',
+        backgroundColor: COLORS.borderLight,
+        overflow: 'hidden',
+    };
+
+    const progressBarInner = {
+        height: '100%',
+        width: `${progress}%`,
+        backgroundColor: COLORS.orange,
+        borderRadius: '3px',
+        transition: 'width 0.2s ease',
+    };
+
+    const showLoading = !dataLoaded || isComputing;
+
     return (
         <div style={containerStyle}>
-            {dataLoaded ? (
+            {dataLoaded && (
                 <SigmaContainer
                     ref={sigmaRef}
                     graph={graph}
                     settings={sigmaSettings}
-                    style={{ width: '100%', height: '100%' }}
+                    style={{ width: '100%', height: '100%', visibility: isComputing ? 'hidden' : 'visible' }}
                 >
                     <GraphEventsController setSelectedNode={handleNodeClick} />
                     <GraphSettingsController selectedNode={selectedNode} pinnedIds={pinnedIds} highlightPinned={highlightPinned} hoveredLegendGroup={hoveredLegendGroup} hoveredBarGroup={hoveredBarGroup} separateBy={filters.separateBy} />
                 </SigmaContainer>
-            ) : (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                    Carregando dados da API...
+            )}
+            {showLoading && (
+                <div style={loadingOverlayStyle}>
+                    <span style={{ fontFamily: FONTS.family, fontSize: FONTS.sizeLg, fontWeight: FONTS.weightSemibold, color: COLORS.textMedium }}>
+                        Carregando...
+                    </span>
+                    <div style={progressBarOuter}>
+                        <div style={progressBarInner} />
+                    </div>
+                    <span style={{ fontFamily: FONTS.family, fontSize: FONTS.sizeXs, color: COLORS.textLight }}>
+                        {progress}%
+                    </span>
                 </div>
             )}
         </div>

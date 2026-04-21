@@ -71,6 +71,7 @@ export default function Grafo() {
     const [hoveredLegendGroup, setHoveredLegendGroup] = useState(null);
     const [hoveredBarGroup, setHoveredBarGroup] = useState(null);
     const [openPanel, setOpenPanel] = useState('filtros'); // estado para o painel aberto
+    const [recalcKey, setRecalcKey] = useState(0);
     const [filters, setFilters] = useState({
         separateBy: 'partido',
         onlyActive: true,
@@ -236,6 +237,7 @@ export default function Grafo() {
                 highlightPinned={filters.highlightPinned}
                 hoveredLegendGroup={hoveredLegendGroup}
                 hoveredBarGroup={hoveredBarGroup}
+                recalcKey={recalcKey}
             />
 
             {/* Barra superior */}
@@ -283,12 +285,12 @@ export default function Grafo() {
                         </span>
                     }
                 >
-                    <div style={{ padding: `0 ${SPACING.lg} ${SPACING.lg}` }}>
+                    <div style={{ padding: `0 ${SPACING.lg} ${SPACING.lg}`, display: 'flex', alignItems: 'center', gap: SPACING.sm }}>
                         <select
                             id="graph-type-selector"
                             value={graphType}
                             onChange={(e) => setGraphType(e.target.value)}
-                            style={selectLargeStyle}
+                            style={{ ...selectLargeStyle, flex: 1 }}
                         >
                             {graphTypeOptions.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
@@ -296,6 +298,33 @@ export default function Grafo() {
                                 </option>
                             ))}
                         </select>
+                        <button
+                            id="recalc-graph-btn"
+                            title="Recalcular grafo"
+                            onClick={() => setRecalcKey(k => k + 1)}
+                            style={{
+                                flex: '0 0 auto',
+                                width: '36px',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: `1px solid ${COLORS.borderMedium}`,
+                                borderRadius: SPACING.radiusMd,
+                                backgroundColor: COLORS.white,
+                                cursor: 'pointer',
+                                transition: 'background-color 0.15s, border-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = COLORS.backgroundLight; e.currentTarget.style.borderColor = COLORS.orange; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = COLORS.white; e.currentTarget.style.borderColor = COLORS.borderMedium; }}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.orange} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M23 4v6h-6" />
+                                <path d="M1 20v-6h6" />
+                                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10" />
+                                <path d="M20.49 15a9 9 0 01-14.85 3.36L1 14" />
+                            </svg>
+                        </button>
                     </div>
                 </Frame>
 
