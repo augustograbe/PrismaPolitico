@@ -3,6 +3,7 @@ import TopBar from '../components/layout/TopBar';
 import FiltersPanel from '../components/FiltersPanel';
 import InfoFrame from '../components/layout/InfoFrame';
 import DeputyCard from '../components/DeputyCard';
+import DeputyProfile from '../components/DeputyProfile';
 import PinnedPanel from '../components/PinnedPanel';
 import LegendPanel from '../components/LegendPanel';
 import GraphContainer from '../components/graph/GraphContainer';
@@ -62,6 +63,7 @@ function getGroupLabel(key, separateBy) {
  */
 export default function Grafo() {
     const [selectedDeputy, setSelectedDeputy] = useState(null);
+    const [profileDeputy, setProfileDeputy] = useState(null);
     const [deputyList, setDeputyList] = useState([]);
     const [graphType, setGraphType] = useState('similaridade');
     const [maxCoautoriaLimit, setMaxCoautoriaLimit] = useState(50);
@@ -118,6 +120,18 @@ export default function Grafo() {
 
     const handleCloseCard = useCallback(() => {
         setSelectedDeputy(null);
+    }, []);
+
+    // Abrir perfil expandido: fecha o card e abre o profile
+    const handleOpenProfile = useCallback(() => {
+        if (selectedDeputy) {
+            setProfileDeputy(selectedDeputy);
+            setSelectedDeputy(null);
+        }
+    }, [selectedDeputy]);
+
+    const handleCloseProfile = useCallback(() => {
+        setProfileDeputy(null);
     }, []);
 
     const handleDeputiesLoaded = useCallback((deputies) => {
@@ -253,8 +267,16 @@ export default function Grafo() {
                 isPinned={isSelectedPinned}
                 onClose={handleCloseCard}
                 onPin={handleTogglePin}
+                onProfile={handleOpenProfile}
                 separateBy={filters.separateBy}
                 onBarSegmentHover={setHoveredBarGroup}
+            />
+
+            {/* Perfil expandido do deputado */}
+            <DeputyProfile
+                deputy={profileDeputy}
+                visible={!!profileDeputy}
+                onClose={handleCloseProfile}
             />
 
             {/* Info frame - canto inferior esquerdo */}
