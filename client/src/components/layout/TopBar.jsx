@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { COLORS, SPACING, FONTS } from '../../constants/theme';
 import SearchBar from '../SearchBar';
 import logo from '../../assets/logo.png';
@@ -10,7 +11,8 @@ import logo from '../../assets/logo.png';
  * - deputyList: array de deputados para autocomplete na SearchBar
  * - onSelectDeputy: callback quando um deputado é selecionado na pesquisa
  */
-export default function TopBar({ deputyList = [], onSelectDeputy }) {
+export default function TopBar({ deputyList = [], onSelectDeputy, activePage = 'grafos' }) {
+    const navigate = useNavigate();
     const barStyle = {
         position: 'fixed',
         top: SPACING.frameGap,
@@ -78,8 +80,10 @@ export default function TopBar({ deputyList = [], onSelectDeputy }) {
     const menuItems = [
         {
             label: 'Grafos',
-            icon: (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={COLORS.orange} strokeWidth="1.5">
+            page: 'grafos',
+            route: '/',
+            icon: (isActive) => (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={isActive ? COLORS.orange : 'currentColor'} strokeWidth="1.5">
                     <circle cx="4" cy="4" r="2.5" />
                     <circle cx="12" cy="4" r="2.5" />
                     <circle cx="8" cy="13" r="2.5" />
@@ -87,20 +91,23 @@ export default function TopBar({ deputyList = [], onSelectDeputy }) {
                     <path d="M10 5.5L9 11" />
                 </svg>
             ),
-            active: true,
         },
         {
             label: 'Lista',
-            icon: (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            page: 'lista',
+            route: '/deputados',
+            icon: (isActive) => (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={isActive ? COLORS.orange : 'currentColor'} strokeWidth="1.5">
                     <path d="M2 3H14M2 8H14M2 13H14" />
                 </svg>
             ),
         },
         {
             label: 'Sobre',
-            icon: (
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            page: 'sobre',
+            route: '/sobre',
+            icon: (isActive) => (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={isActive ? COLORS.orange : 'currentColor'} strokeWidth="1.5">
                     <circle cx="8" cy="8" r="6.5" />
                     <path d="M8 7V12M8 5V5.5" />
                 </svg>
@@ -129,24 +136,28 @@ export default function TopBar({ deputyList = [], onSelectDeputy }) {
 
             {/* Right: Menu buttons */}
             <div style={rightStyle}>
-                {menuItems.map((item) => (
-                    <button
-                        key={item.label}
-                        style={{
-                            ...menuBtnStyle,
-                            color: item.active ? COLORS.orange : COLORS.textMedium,
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                        }}
-                    >
-                        {item.icon}
-                        {item.label}
-                    </button>
-                ))}
+                {menuItems.map((item) => {
+                    const isActive = activePage === item.page;
+                    return (
+                        <button
+                            key={item.label}
+                            style={{
+                                ...menuBtnStyle,
+                                color: isActive ? COLORS.orange : COLORS.textMedium,
+                            }}
+                            onClick={() => navigate(item.route)}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                        >
+                            {item.icon(isActive)}
+                            {item.label}
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );

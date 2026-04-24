@@ -258,6 +258,7 @@ export default function Grafo() {
             <TopBar
                 deputyList={deputyList}
                 onSelectDeputy={handleSearchSelectDeputy}
+                activePage="grafos"
             />
 
             {/* Card de deputado - canto superior esquerdo (aparece ao clicar num vértice) */}

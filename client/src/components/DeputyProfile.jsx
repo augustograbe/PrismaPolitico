@@ -26,7 +26,7 @@ export default function DeputyProfile({ deputy = null, visible = false, onClose 
     const headerColor = deputy.nodeColor || COLORS.deputyHeaderGreen;
     const photoUrl = deputy.url_foto || deputy.urlFoto;
 
-    const PHOTO_SIZE = 100;
+    const PHOTO_SIZE = 130;
     const HEADER_HEIGHT = 40;
     const PHOTO_OVERLAP = 30;
 
