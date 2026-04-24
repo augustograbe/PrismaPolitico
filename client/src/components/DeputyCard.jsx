@@ -63,10 +63,13 @@ export default function DeputyCard({
     onPin,
     onProfile,
     separateBy = 'partido',
+    graphType = 'similaridade',
     onBarSegmentHover,
+    onConnectionHover,
 }) {
     const [hoveredSegment, setHoveredSegment] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+    const [connectionsExpanded, setConnectionsExpanded] = useState(false);
     const barRef = useRef(null);
 
     if (!visible || !deputy) return null;
@@ -378,6 +381,30 @@ export default function DeputyCard({
 
                 {/* Stats */}
                 <div style={statsStyle}>
+                    {/* Presença */}
+                    {presenca !== null && (
+                        <div style={statRowStyle}>
+                            <span style={statLabelStyle}>Presença:</span>
+                            <div style={{ ...progressTrackStyle, display: 'flex', alignItems: 'center' }}>
+                                <div style={progressFillStyle(presenca, COLORS.orange)}>
+                                    {presenca >= 20 && (
+                                        <span style={progressTextStyle}>{presenca}%</span>
+                                    )}
+                                </div>
+                                {presenca < 20 && (
+                                    <span style={{ 
+                                        fontSize: '10px', 
+                                        fontWeight: FONTS.weightSemibold, 
+                                        color: COLORS.textMedium,
+                                        marginLeft: '6px'
+                                    }}>
+                                        {presenca}%
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Conexões — label + segmented bar inline */}
                     <div style={statRowStyle}>
                         <span style={statLabelStyle}>{conexoes} conexões</span>
@@ -474,31 +501,130 @@ export default function DeputyCard({
                             )}
                         </div>
                     </div>
-
-                    {/* Presença */}
-                    {presenca !== null && (
-                        <div style={statRowStyle}>
-                            <span style={statLabelStyle}>Presença:</span>
-                            <div style={{ ...progressTrackStyle, display: 'flex', alignItems: 'center' }}>
-                                <div style={progressFillStyle(presenca, COLORS.orange)}>
-                                    {presenca >= 20 && (
-                                        <span style={progressTextStyle}>{presenca}%</span>
-                                    )}
-                                </div>
-                                {presenca < 20 && (
-                                    <span style={{ 
-                                        fontSize: '10px', 
-                                        fontWeight: FONTS.weightSemibold, 
-                                        color: COLORS.textMedium,
-                                        marginLeft: '6px'
-                                    }}>
-                                        {presenca}%
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    )}
                 </div>
+
+                {/* Expandable connections list */}
+                {conexoes > 0 && (
+                    <div style={{ padding: `0 ${SPACING.lg}` }}>
+                        <button
+                            onClick={() => setConnectionsExpanded(!connectionsExpanded)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: SPACING.xs,
+                                fontSize: FONTS.sizeXs,
+                                color: COLORS.orange,
+                                fontFamily: FONTS.family,
+                                fontWeight: FONTS.weightMedium,
+                                padding: `${SPACING.xs} 0`,
+                                transition: 'color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = COLORS.orangeHover}
+                            onMouseLeave={(e) => e.currentTarget.style.color = COLORS.orange}
+                        >
+                            <svg
+                                width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"
+                                style={{ transition: 'transform 0.2s', transform: connectionsExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                            >
+                                <path d="M3 1L7 5L3 9" />
+                            </svg>
+                            {connectionsExpanded ? 'Ocultar conexões' : 'Ver conexões'}
+                        </button>
+
+                        {connectionsExpanded && (() => {
+                            const rawList = deputy.connectionsList || [];
+                            const sortField = graphType === 'coautoria' ? 'coautoria' : 'similaridade';
+                            const sorted = [...rawList].sort((a, b) => b[sortField] - a[sortField]);
+
+                            return (
+                                <div style={{
+                                    maxHeight: '240px',
+                                    overflow: 'auto',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '1px',
+                                    paddingBottom: SPACING.sm,
+                                }}>
+                                    {sorted.map((conn) => (
+                                        <div
+                                            key={conn.id}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: SPACING.sm,
+                                                padding: `3px ${SPACING.xs}`,
+                                                borderRadius: SPACING.radiusSm,
+                                                cursor: 'default',
+                                                transition: 'background-color 0.12s',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#f0f4ff';
+                                                if (onConnectionHover) onConnectionHover(conn.nodeId);
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                if (onConnectionHover) onConnectionHover(null);
+                                            }}
+                                        >
+                                            {/* Color dot */}
+                                            <span style={{
+                                                width: '8px',
+                                                height: '8px',
+                                                borderRadius: '50%',
+                                                backgroundColor: conn.nodeColor || COLORS.textMedium,
+                                                flexShrink: 0,
+                                            }} />
+                                            {/* Name + party */}
+                                            <div style={{
+                                                flex: 1,
+                                                minWidth: 0,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                overflow: 'hidden',
+                                            }}>
+                                                <span style={{
+                                                    fontSize: FONTS.sizeXs,
+                                                    color: COLORS.textDark,
+                                                    fontWeight: FONTS.weightMedium,
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                }}>
+                                                    {conn.nome}
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    color: COLORS.textLight,
+                                                    whiteSpace: 'nowrap',
+                                                    flexShrink: 0,
+                                                }}>
+                                                    {conn.sigla_partido}
+                                                </span>
+                                            </div>
+                                            {/* Similarity/coautoria value */}
+                                            <span style={{
+                                                fontSize: FONTS.sizeXs,
+                                                color: COLORS.orange,
+                                                fontWeight: FONTS.weightSemibold,
+                                                whiteSpace: 'nowrap',
+                                                flexShrink: 0,
+                                            }}>
+                                                {graphType === 'coautoria'
+                                                    ? conn.coautoria
+                                                    : `${conn.similaridade.toFixed(1)}%`
+                                                }
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
 
                 {/* Buttons */}
                 <div style={buttonsStyle}>

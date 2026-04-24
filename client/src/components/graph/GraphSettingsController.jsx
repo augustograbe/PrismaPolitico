@@ -56,7 +56,7 @@ function getGroupColor(key, separateBy) {
  * Utiliza o nodeReducer para passar o atributo 'isPinned' que é consumido
  * pelo drawLabel customizado no GraphContainer.
  */
-export default function GraphSettingsController({ selectedNode, pinnedIds = [], highlightPinned = true, hoveredLegendGroup = null, hoveredBarGroup = null, separateBy = 'partido' }) {
+export default function GraphSettingsController({ selectedNode, pinnedIds = [], highlightPinned = true, hoveredLegendGroup = null, hoveredBarGroup = null, hoveredConnectionNode = null, separateBy = 'partido' }) {
     const sigma = useSigma();
     const graph = sigma.getGraph();
 
@@ -81,7 +81,44 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
                 }
             });
 
-            if (hoveredBarGroup) {
+            if (hoveredConnectionNode) {
+                // A specific connection is hovered: highlight only the two nodes and their edge
+                const hoveredNodeColor = graph.getNodeAttribute(hoveredConnectionNode, 'color') || COLORS.textMedium;
+
+                sigma.setSetting('nodeReducer', (node, data) => {
+                    const isPinned = shouldHighlightPinned && pinnedSet.has(node);
+
+                    if (node === selectedNode || node === hoveredConnectionNode) {
+                        return {
+                            ...data,
+                            color: withOpacity(data.color, 1.0),
+                            zIndex: 2,
+                            highlighted: true,
+                            isPinned,
+                            forceLabel: true,
+                            alpha: 1.0,
+                        };
+                    }
+
+                    return {
+                        ...data,
+                        zIndex: 0,
+                        label: isPinned ? data.label : '',
+                        color: withOpacity(NODE_FADE_COLOR, 0.9),
+                        highlighted: false,
+                        isPinned,
+                        forceLabel: isPinned,
+                        alpha: 0.9,
+                    };
+                });
+
+                sigma.setSetting('edgeReducer', (edge, data) => {
+                    if (graph.hasExtremity(edge, selectedNode) && graph.hasExtremity(edge, hoveredConnectionNode) && !data.hidden) {
+                        return { ...data, color: hoveredNodeColor, size: 3 };
+                    }
+                    return { ...data, color: EDGE_FADE_COLOR, hidden: true };
+                });
+            } else if (hoveredBarGroup) {
                 // A bar segment is hovered: highlight only edges to neighbors of that group
                 const hoveredGroupColor = getGroupColor(hoveredBarGroup, separateBy);
 
@@ -270,7 +307,7 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
         return () => {
             // nodeReducer and edgeReducer are cleared by the next effect or when unmounted
         };
-    }, [selectedNode, pinnedIds, highlightPinned, hoveredLegendGroup, hoveredBarGroup, separateBy, sigma, graph]);
+    }, [selectedNode, pinnedIds, highlightPinned, hoveredLegendGroup, hoveredBarGroup, hoveredConnectionNode, separateBy, sigma, graph]);
 
     return null;
 }

@@ -72,6 +72,7 @@ export default function Grafo() {
     const [totalVisible, setTotalVisible] = useState(0);
     const [hoveredLegendGroup, setHoveredLegendGroup] = useState(null);
     const [hoveredBarGroup, setHoveredBarGroup] = useState(null);
+    const [hoveredConnectionNode, setHoveredConnectionNode] = useState(null);
     const [openPanel, setOpenPanel] = useState('filtros'); // estado para o painel aberto
     const [recalcKey, setRecalcKey] = useState(0);
     const [filters, setFilters] = useState({
@@ -251,6 +252,7 @@ export default function Grafo() {
                 highlightPinned={filters.highlightPinned}
                 hoveredLegendGroup={hoveredLegendGroup}
                 hoveredBarGroup={hoveredBarGroup}
+                hoveredConnectionNode={hoveredConnectionNode}
                 recalcKey={recalcKey}
             />
 
@@ -270,7 +272,9 @@ export default function Grafo() {
                 onPin={handleTogglePin}
                 onProfile={handleOpenProfile}
                 separateBy={filters.separateBy}
+                graphType={graphType}
                 onBarSegmentHover={setHoveredBarGroup}
+                onConnectionHover={setHoveredConnectionNode}
             />
 
             {/* Perfil expandido do deputado */}

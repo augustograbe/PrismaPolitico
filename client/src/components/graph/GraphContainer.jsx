@@ -37,7 +37,7 @@ function getNodeColor(deputy, separateBy) {
  * - selectedNode: id do nó selecionado (string | null)
  * - onNodeClick: callback quando um nó é clicado
  */
-export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded, onMaxCoautoriaLoaded, onVisibleStatsChanged, pinnedIds = [], highlightPinned = true, hoveredLegendGroup = null, hoveredBarGroup = null, recalcKey = 0, onLayoutReady }) {
+export default function GraphContainer({ filters, graphType = 'similaridade', selectedNode, onNodeClick, onDeputiesLoaded, onMaxCoautoriaLoaded, onVisibleStatsChanged, pinnedIds = [], highlightPinned = true, hoveredLegendGroup = null, hoveredBarGroup = null, hoveredConnectionNode = null, recalcKey = 0, onLayoutReady }) {
     const graph = useMemo(() => new Graph(), []);
     const sigmaRef = useRef(null);
     const [dataLoaded, setDataLoaded] = useState(false);
@@ -537,11 +537,13 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                 // Compute connection breakdown by group (partido/estado/sexo)
                 const separateBy = filters.separateBy || 'partido';
                 const connectionBreakdown = {};
+                const connectionsList = [];
                 graph.forEachEdge(nodeId, (edgeId, attrs, source, target) => {
                     if (graph.getEdgeAttribute(edgeId, 'hidden')) return;
                     const neighborId = source === nodeId ? target : source;
                     const neighborDep = graph.getNodeAttribute(neighborId, 'deputyData');
                     if (!neighborDep) return;
+                    const neighborColor = graph.getNodeAttribute(neighborId, 'color');
                     let groupKey;
                     switch (separateBy) {
                         case 'partido':
@@ -557,9 +559,20 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                             groupKey = neighborDep.sigla_partido || neighborDep.partido || 'OUTROS';
                     }
                     connectionBreakdown[groupKey] = (connectionBreakdown[groupKey] || 0) + 1;
+
+                    // Build connections list entry
+                    connectionsList.push({
+                        id: neighborDep.id,
+                        nodeId: neighborId,
+                        nome: neighborDep.nome,
+                        sigla_partido: neighborDep.sigla_partido || neighborDep.partido,
+                        nodeColor: neighborColor,
+                        similaridade: attrs.similaridade || 0,
+                        coautoria: attrs.coautoria || 0,
+                    });
                 });
 
-                onNodeClick({ ...dep, nodeColor: color, nodeId, conexoes, maxConexoes, connectionBreakdown });
+                onNodeClick({ ...dep, nodeColor: color, nodeId, conexoes, maxConexoes, connectionBreakdown, connectionsList });
             }
         },
         [graph, onNodeClick, filters],
@@ -608,7 +621,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                     style={{ width: '100%', height: '100%', visibility: isComputing ? 'hidden' : 'visible' }}
                 >
                     <GraphEventsController setSelectedNode={handleNodeClick} />
-                    <GraphSettingsController selectedNode={selectedNode} pinnedIds={pinnedIds} highlightPinned={highlightPinned} hoveredLegendGroup={hoveredLegendGroup} hoveredBarGroup={hoveredBarGroup} separateBy={filters.separateBy} />
+                    <GraphSettingsController selectedNode={selectedNode} pinnedIds={pinnedIds} highlightPinned={highlightPinned} hoveredLegendGroup={hoveredLegendGroup} hoveredBarGroup={hoveredBarGroup} hoveredConnectionNode={hoveredConnectionNode} separateBy={filters.separateBy} />
                 </SigmaContainer>
             )}
             {showLoading && (
