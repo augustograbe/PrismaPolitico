@@ -6,10 +6,6 @@ from analises.models import DeputadoAnalise
 
 class DeputadoSerializer(serializers.ModelSerializer):
     presenca = serializers.SerializerMethodField()
-    louvain_votos = serializers.SerializerMethodField()
-    leiden_votos = serializers.SerializerMethodField()
-    louvain_coautoria = serializers.SerializerMethodField()
-    leiden_coautoria = serializers.SerializerMethodField()
 
     class Meta:
         model = Deputado
@@ -30,22 +26,6 @@ class DeputadoSerializer(serializers.ModelSerializer):
     def get_presenca(self, obj):
         analise = self._get_analise(obj)
         return analise.presenca_percentual if analise else None
-
-    def get_louvain_votos(self, obj):
-        analise = self._get_analise(obj)
-        return analise.louvain_votos if analise else None
-
-    def get_leiden_votos(self, obj):
-        analise = self._get_analise(obj)
-        return analise.leiden_votos if analise else None
-
-    def get_louvain_coautoria(self, obj):
-        analise = self._get_analise(obj)
-        return analise.louvain_coautoria if analise else None
-
-    def get_leiden_coautoria(self, obj):
-        analise = self._get_analise(obj)
-        return analise.leiden_coautoria if analise else None
 
 
 class GrafoArestaSerializer(serializers.ModelSerializer):

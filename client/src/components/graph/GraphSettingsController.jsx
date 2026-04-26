@@ -1,6 +1,6 @@
 import { useSigma } from '@react-sigma/core';
 import { useEffect } from 'react';
-import { COLORS, PARTY_COLORS, STATE_COLORS, SEX_COLORS, COMMUNITY_COLORS } from '../../constants/theme';
+import { COLORS, PARTY_COLORS, STATE_COLORS, SEX_COLORS } from '../../constants/theme';
 
 const NODE_FADE_COLOR = COLORS.nodeFade;
 const EDGE_FADE_COLOR = COLORS.edgeFade;
@@ -19,18 +19,19 @@ function withOpacity(hex, alpha) {
 /**
  * Retorna o ID da comunidade do deputado baseado no algoritmo e tipo de grafo.
  */
-function getCommunityId(deputy, communityAlgorithm, graphType) {
+function getCommunityId(deputy, graphType, dynamicCommunityMap = null) {
     if (!deputy) return null;
-    const field = graphType === 'coautoria'
-        ? (communityAlgorithm === 'leiden' ? 'leiden_coautoria' : 'louvain_coautoria')
-        : (communityAlgorithm === 'leiden' ? 'leiden_votos' : 'louvain_votos');
-    return deputy[field] != null ? deputy[field] : null;
+    const depId = String(deputy.id);
+    if (dynamicCommunityMap && Object.prototype.hasOwnProperty.call(dynamicCommunityMap, depId)) {
+        return dynamicCommunityMap[depId];
+    }
+    return null;
 }
 
 /**
  * Gets the group key for a node based on the separateBy criterion.
  */
-function getNodeGroupKey(dep, separateBy, communityAlgorithm, graphType) {
+function getNodeGroupKey(dep, separateBy, graphType, dynamicCommunityMap = null) {
     if (!dep) return null;
     switch (separateBy) {
         case 'partido':
@@ -40,7 +41,7 @@ function getNodeGroupKey(dep, separateBy, communityAlgorithm, graphType) {
         case 'sexo':
             return dep.sexo || 'O';
         case 'comunidade': {
-            const cId = getCommunityId(dep, communityAlgorithm, graphType);
+            const cId = getCommunityId(dep, graphType, dynamicCommunityMap);
             return cId != null ? String(cId) : 'sem_comunidade';
         }
         default:
@@ -60,9 +61,7 @@ function getGroupColor(key, separateBy) {
         case 'sexo':
             return SEX_COLORS[key] || COLORS.textMedium;
         case 'comunidade': {
-            const idx = parseInt(key, 10);
-            if (isNaN(idx)) return COLORS.textMedium;
-            return COMMUNITY_COLORS[idx % COMMUNITY_COLORS.length];
+            return COLORS.textMedium;
         }
         default:
             return PARTY_COLORS[key] || COLORS.textMedium;
@@ -76,7 +75,7 @@ function getGroupColor(key, separateBy) {
  * Utiliza o nodeReducer para passar o atributo 'isPinned' que é consumido
  * pelo drawLabel customizado no GraphContainer.
  */
-export default function GraphSettingsController({ selectedNode, pinnedIds = [], highlightPinned = true, hoveredLegendGroup = null, hoveredBarGroup = null, hoveredConnectionNode = null, separateBy = 'partido', communityAlgorithm = 'louvain', graphType = 'similaridade' }) {
+export default function GraphSettingsController({ selectedNode, pinnedIds = [], highlightPinned = true, hoveredLegendGroup = null, hoveredBarGroup = null, hoveredConnectionNode = null, separateBy = 'partido', graphType = 'similaridade', dynamicCommunityMap = null }) {
     const sigma = useSigma();
     const graph = sigma.getGraph();
 
@@ -96,7 +95,7 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
                     if (!graph.getNodeAttribute(neighbor, 'hidden')) {
                         neighbors.add(neighbor);
                         const dep = graph.getNodeAttribute(neighbor, 'deputyData');
-                        neighborGroups[neighbor] = getNodeGroupKey(dep, separateBy, communityAlgorithm, graphType);
+                        neighborGroups[neighbor] = getNodeGroupKey(dep, separateBy, graphType, dynamicCommunityMap);
                     }
                 }
             });
@@ -280,7 +279,7 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
             sigma.setSetting('nodeReducer', (node, data) => {
                 const isPinned = shouldHighlightPinned && pinnedSet.has(node);
                 const dep = graph.getNodeAttribute(node, 'deputyData');
-                const groupKey = getNodeGroupKey(dep, separateBy, communityAlgorithm, graphType);
+                const groupKey = getNodeGroupKey(dep, separateBy, graphType, dynamicCommunityMap);
                 const isMatch = groupKey === hoveredLegendGroup;
 
                     if (isMatch) {
@@ -327,7 +326,7 @@ export default function GraphSettingsController({ selectedNode, pinnedIds = [], 
         return () => {
             // nodeReducer and edgeReducer are cleared by the next effect or when unmounted
         };
-    }, [selectedNode, pinnedIds, highlightPinned, hoveredLegendGroup, hoveredBarGroup, hoveredConnectionNode, separateBy, communityAlgorithm, graphType, sigma, graph]);
+    }, [selectedNode, pinnedIds, highlightPinned, hoveredLegendGroup, hoveredBarGroup, hoveredConnectionNode, separateBy, graphType, dynamicCommunityMap, sigma, graph]);
 
     return null;
 }

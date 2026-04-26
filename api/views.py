@@ -1,6 +1,9 @@
 from rest_framework import viewsets
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from deputados.models import Deputado
 from grafos.models import GrafoAresta
+from analises.services import calcular_comunidades_coautoria, calcular_comunidades_votos
 from .serializers import DeputadoSerializer, GrafoArestaSerializer
 
 
@@ -41,3 +44,69 @@ class ArestaCoautoriaViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(coautoria__gte=int(min_coautoria))
             
         return queryset
+
+
+class ComunidadesVotosView(APIView):
+    def get(self, request):
+        try:
+            legislatura = int(request.query_params.get('legislatura', 57))
+            min_similaridade = float(request.query_params.get('min_similaridade', 80))
+            max_similaridade = float(request.query_params.get('max_similaridade', 100))
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'legislatura, min_similaridade e max_similaridade devem ser numericos.'},
+                status=400,
+            )
+
+        algoritmo = request.query_params.get('algoritmo', 'louvain').lower()
+
+        if min_similaridade > max_similaridade:
+            return Response(
+                {'detail': 'min_similaridade deve ser menor ou igual a max_similaridade.'},
+                status=400,
+            )
+
+        try:
+            resultado = calcular_comunidades_votos(
+                legislatura=legislatura,
+                min_similaridade=min_similaridade,
+                max_similaridade=max_similaridade,
+                algoritmo=algoritmo,
+            )
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=400)
+
+        return Response(resultado)
+
+
+class ComunidadesCoautoriaView(APIView):
+    def get(self, request):
+        try:
+            legislatura = int(request.query_params.get('legislatura', 57))
+            min_coautoria = int(request.query_params.get('min_coautoria', 1))
+            max_coautoria = int(request.query_params.get('max_coautoria', 999))
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'legislatura, min_coautoria e max_coautoria devem ser numericos.'},
+                status=400,
+            )
+
+        algoritmo = request.query_params.get('algoritmo', 'louvain').lower()
+
+        if min_coautoria > max_coautoria:
+            return Response(
+                {'detail': 'min_coautoria deve ser menor ou igual a max_coautoria.'},
+                status=400,
+            )
+
+        try:
+            resultado = calcular_comunidades_coautoria(
+                legislatura=legislatura,
+                min_coautoria=min_coautoria,
+                max_coautoria=max_coautoria,
+                algoritmo=algoritmo,
+            )
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=400)
+
+        return Response(resultado)

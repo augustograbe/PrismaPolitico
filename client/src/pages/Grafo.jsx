@@ -153,11 +153,11 @@ export default function Grafo() {
     }, []);
 
     // Handle visible stats from GraphContainer for the legend
-    const handleVisibleStatsChanged = useCallback(({ separateBy, groupCounts, totalVisible: total }) => {
+    const handleVisibleStatsChanged = useCallback(({ separateBy, groupCounts, groupColors = {}, totalVisible: total }) => {
         const data = Object.entries(groupCounts).map(([key, count]) => ({
             key,
             label: getGroupLabel(key, separateBy),
-            color: getGroupColor(key, separateBy),
+            color: groupColors[key] || getGroupColor(key, separateBy),
             count,
         }));
         setLegendData(data);
