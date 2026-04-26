@@ -6,14 +6,25 @@ import { circular, random } from 'graphology-layout';
 import noverlap from 'graphology-layout-noverlap';
 import '@react-sigma/core/lib/style.css';
 
-import { PARTY_COLORS, STATE_COLORS, SEX_COLORS, COLORS, SPACING, FONTS } from '../../constants/theme';
+import { PARTY_COLORS, STATE_COLORS, SEX_COLORS, COMMUNITY_COLORS, COLORS, SPACING, FONTS } from '../../constants/theme';
 import GraphEventsController from './GraphEventsController';
 import GraphSettingsController from './GraphSettingsController';
 
 /**
+ * Retorna o ID da comunidade do deputado baseado no algoritmo e tipo de grafo.
+ */
+function getCommunityId(deputy, communityAlgorithm, graphType) {
+    if (!deputy) return null;
+    const field = graphType === 'coautoria'
+        ? (communityAlgorithm === 'leiden' ? 'leiden_coautoria' : 'louvain_coautoria')
+        : (communityAlgorithm === 'leiden' ? 'leiden_votos' : 'louvain_votos');
+    return deputy[field] != null ? deputy[field] : null;
+}
+
+/**
  * Retorna a cor de um deputado baseado no critério de separação
  */
-function getNodeColor(deputy, separateBy) {
+function getNodeColor(deputy, separateBy, communityAlgorithm, graphType) {
     const partido = deputy.sigla_partido || deputy.partido;
     const estado = deputy.sigla_uf || deputy.estado;
     const sexo = deputy.sexo;
@@ -25,6 +36,11 @@ function getNodeColor(deputy, separateBy) {
             return STATE_COLORS[estado] || COLORS.textMedium;
         case 'sexo':
             return SEX_COLORS[sexo] || COLORS.textMedium;
+        case 'comunidade': {
+            const cId = getCommunityId(deputy, communityAlgorithm, graphType);
+            if (cId == null) return COLORS.textMedium;
+            return COMMUNITY_COLORS[cId % COMMUNITY_COLORS.length];
+        }
         default:
             return PARTY_COLORS[partido] || COLORS.textMedium;
     }
@@ -217,7 +233,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
     const applyFilters = useCallback(() => {
         if (!filters || !dataLoaded) return;
 
-        const { separateBy, onlyActive, onlyWithConnections, presence, voteSimilarity, vertexSize, graphLayout } = filters;
+        const { separateBy, onlyActive, onlyWithConnections, presence, voteSimilarity, vertexSize, graphLayout, communityAlgorithm } = filters;
 
         // Atualizar nós (cor e visibilidade)
         graph.forEachNode((nodeId) => {
@@ -225,7 +241,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
             if (!dep) return;
 
             // Cor baseada no critério de separação
-            const color = getNodeColor(dep, separateBy);
+            const color = getNodeColor(dep, separateBy, communityAlgorithm, graphType);
             graph.setNodeAttribute(nodeId, 'color', color);
 
             // Visibilidade baseada nos filtros
@@ -400,6 +416,11 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                     case 'sexo':
                         groupKey = dep.sexo || 'O';
                         break;
+                    case 'comunidade': {
+                        const cId = getCommunityId(dep, communityAlgorithm, graphType);
+                        groupKey = cId != null ? String(cId) : 'sem_comunidade';
+                        break;
+                    }
                     default:
                         groupKey = dep.sigla_partido || dep.partido || 'OUTROS';
                 }
@@ -536,6 +557,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
 
                 // Compute connection breakdown by group (partido/estado/sexo)
                 const separateBy = filters.separateBy || 'partido';
+                const communityAlgorithm = filters.communityAlgorithm || 'louvain';
                 const connectionBreakdown = {};
                 const connectionsList = [];
                 graph.forEachEdge(nodeId, (edgeId, attrs, source, target) => {
@@ -555,6 +577,11 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                         case 'sexo':
                             groupKey = neighborDep.sexo || 'O';
                             break;
+                        case 'comunidade': {
+                            const cId = getCommunityId(neighborDep, communityAlgorithm, graphType);
+                            groupKey = cId != null ? String(cId) : 'sem_comunidade';
+                            break;
+                        }
                         default:
                             groupKey = neighborDep.sigla_partido || neighborDep.partido || 'OUTROS';
                     }
@@ -621,7 +648,7 @@ export default function GraphContainer({ filters, graphType = 'similaridade', se
                     style={{ width: '100%', height: '100%', visibility: isComputing ? 'hidden' : 'visible' }}
                 >
                     <GraphEventsController setSelectedNode={handleNodeClick} />
-                    <GraphSettingsController selectedNode={selectedNode} pinnedIds={pinnedIds} highlightPinned={highlightPinned} hoveredLegendGroup={hoveredLegendGroup} hoveredBarGroup={hoveredBarGroup} hoveredConnectionNode={hoveredConnectionNode} separateBy={filters.separateBy} />
+                    <GraphSettingsController selectedNode={selectedNode} pinnedIds={pinnedIds} highlightPinned={highlightPinned} hoveredLegendGroup={hoveredLegendGroup} hoveredBarGroup={hoveredBarGroup} hoveredConnectionNode={hoveredConnectionNode} separateBy={filters.separateBy} communityAlgorithm={filters.communityAlgorithm || 'louvain'} graphType={graphType} />
                 </SigmaContainer>
             )}
             {showLoading && (

@@ -54,6 +54,11 @@ function getGroupLabel(key, separateBy) {
     if (separateBy === 'sexo') {
         return SEX_LABELS[key] || key;
     }
+    if (separateBy === 'comunidade') {
+        if (key === 'sem_comunidade') return 'Sem Comunidade';
+        const num = parseInt(key, 10);
+        if (!isNaN(num)) return `Comunidade ${num + 1}`;
+    }
     return key;
 }
 
@@ -272,6 +277,7 @@ export default function Grafo() {
                 onPin={handleTogglePin}
                 onProfile={handleOpenProfile}
                 separateBy={filters.separateBy}
+                communityAlgorithm={filters.communityAlgorithm || 'louvain'}
                 graphType={graphType}
                 onBarSegmentHover={setHoveredBarGroup}
                 onConnectionHover={setHoveredConnectionNode}

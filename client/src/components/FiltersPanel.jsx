@@ -22,6 +22,7 @@ export default function FiltersPanel({ onApply, graphType = 'similaridade', maxC
     const [coautoria, setCoautoria] = useState({ min: 1, max: 50 });
     const [vertexSize, setVertexSize] = useState('padrao');
     const [graphLayout, setGraphLayout] = useState('forceatlas2_clusters');
+    const [communityAlgorithm, setCommunityAlgorithm] = useState('louvain');
 
     useEffect(() => {
         setCoautoria({ min: 1, max: maxCoautoriaLimit });
@@ -31,6 +32,12 @@ export default function FiltersPanel({ onApply, graphType = 'similaridade', maxC
         { value: 'partido', label: 'Partido' },
         { value: 'estado', label: 'Estado' },
         { value: 'sexo', label: 'Sexo' },
+        { value: 'comunidade', label: 'Comunidades' },
+    ];
+
+    const communityAlgorithmOptions = [
+        { value: 'louvain', label: 'Louvain' },
+        { value: 'leiden', label: 'Leiden' },
     ];
 
     const vertexSizeOptions = [
@@ -84,6 +91,7 @@ export default function FiltersPanel({ onApply, graphType = 'similaridade', maxC
                 coautoria,
                 vertexSize,
                 graphLayout,
+                communityAlgorithm,
             });
         }
     };
@@ -189,7 +197,14 @@ export default function FiltersPanel({ onApply, graphType = 'similaridade', maxC
                     title="Avançado"
                     defaultExpanded={false}
                 >
-                    {/* Conteúdo avançado será adicionado futuramente */}
+                    <Dropdown
+                        label="Algoritmo de comunidades"
+                        options={communityAlgorithmOptions}
+                        value={communityAlgorithm}
+                        onChange={(e) => setCommunityAlgorithm(e.target.value)}
+                        disabled={separateBy !== 'comunidade'}
+                        style={{ flexDirection: 'column', alignItems: 'flex-start', gap: SPACING.sm }}
+                    />
                 </PanelSection>
             </div>
 
